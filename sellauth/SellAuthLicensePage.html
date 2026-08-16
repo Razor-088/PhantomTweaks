@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="system">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Licencia · PhantomTweaks</title>
+<style>
+  /* ============================================================
+     Tokens por tema (oscuro / claro). Un solo juego de variables.
+     ============================================================ */
+  :root, [data-theme="dark"] {
+    --base: #080b0a;
+    --surface: #111615;
+    --surface2: #151d1b;
+    --border: #1e2a26;
+    --text: #ffffff;
+    --muted: #a8b3ae;
+    --dim: #6f7c76;
+    --accent: #00ff88;
+    --accent-2: #00b46a;
+    --danger: #ff4d6d;
+    --warn: #ffb84d;
+    --ok: #00d66b;
+    --on-accent: #06120c;
+    color-scheme: dark;
+  }
+  [data-theme="light"] {
+    --base: #eef2f0;
+    --surface: #ffffff;
+    --surface2: #f5f8f7;
+    --border: #d5dfdb;
+    --text: #111917;
+    --muted: #4c5b55;
+    --dim: #7b8a84;
+    --accent: #00b46a;
+    --accent-2: #00985a;
+    --danger: #d93a54;
+    --warn: #b87f14;
+    --ok: #00985a;
+    --on-accent: #06120c;
+    color-scheme: light;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body { height: 100%; }
+
+  body {
+    min-height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    font-family: "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, sans-serif;
+    color: var(--text);
+    background:
+      radial-gradient(900px 400px at 80% -10%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 60%),
+      var(--base);
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  .card {
+    width: 100%;
+    max-width: 420px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    box-shadow: 0 24px 60px -24px rgba(0,0,0,.55);
+  }
+
+  .head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .logo {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 38px; height: 38px; border-radius: 10px;
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--accent) 33%, transparent);
+    flex-shrink: 0;
+  }
+  .brand { flex: 1; min-width: 0; }
+  .brand h1 { font-size: 14px; font-weight: 700; letter-spacing: .02em; }
+  .brand .sub { font-size: 11.5px; color: var(--dim); }
+
+  .lang { display: flex; gap: 4px; font-size: 11px; }
+  .lang button {
+    background: transparent; border: 1px solid var(--border); border-radius: 6px;
+    color: var(--dim); padding: 2px 7px; cursor: pointer; font-size: 11px;
+    font-family: inherit;
+  }
+  .lang button.on { color: var(--text); border-color: var(--accent); }
+
+  .title { font-size: 15px; font-weight: 600; }
+  .subtitle { font-size: 12px; color: var(--dim); margin: 2px 0 16px; }
+
+  input[type="text"] {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text);
+    font-size: 13px;
+    font-family: "Cascadia Mono", Consolas, monospace;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    outline: none;
+  }
+  input[type="text"]:focus { border-color: var(--accent); }
+
+  .btn {
+    width: 100%;
+    margin-top: 10px;
+    padding: 10px;
+    border: none;
+    border-radius: 8px;
+    background: var(--accent);
+    color: var(--on-accent);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: opacity .15s ease, transform .15s ease;
+  }
+  .btn:disabled { opacity: .55; cursor: default; }
+  .btn:hover:not(:disabled) { opacity: .9; }
+
+  .box { margin-top: 12px; padding: 10px 12px; border-radius: 8px; font-size: 12.5px; }
+  .box.error { background: color-mix(in srgb, var(--danger) 12%, transparent); border: 1px solid color-mix(in srgb, var(--danger) 35%, transparent); color: var(--danger); }
+  .box.warn  { background: color-mix(in srgb, var(--warn) 12%, transparent);  border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent);  color: var(--warn); }
+  .box.ok    { background: color-mix(in srgb, var(--accent) 12%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); }
+
+  .box .row { display: flex; justify-content: space-between; gap: 8px; padding: 6px 0; font-size: 12px; color: var(--muted); }
+  .box .row b { color: var(--text); font-weight: 500; font-family: Consolas, monospace; font-size: 12px; word-break: break-all; }
+
+  .valid-head { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: var(--accent); }
+  .valid-head .dot {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 20px; height: 20px; border-radius: 999px;
+    background: var(--accent); color: var(--on-accent); font-size: 12px;
+  }
+
+  .btn-inline {
+    display: block; width: 100%; margin-top: 8px; padding: 7px 12px;
+    background: var(--accent); color: var(--on-accent); border: none; border-radius: 6px;
+    font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; text-decoration: none; text-align: center;
+  }
+  .btn-link {
+    color: var(--accent); font-weight: 600; text-decoration: none;
+  }
+
+  .buy { margin-top: 16px; text-align: center; font-size: 12px; color: var(--dim); }
+
+  .note {
+    margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--border);
+    font-size: 10.5px; line-height: 1.5; color: var(--dim);
+  }
+
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <!-- Cabecera -->
+  <div class="head">
+    <span class="logo" id="logoBox"></span>
+    <div class="brand">
+      <h1 id="appName">PhantomTweaks</h1>
+      <div class="sub" id="productName">Licencia Pro</div>
+    </div>
+    <div class="lang">
+      <button id="langEs" class="on" data-lang="es">ES</button>
+      <button id="langEn" data-lang="en">EN</button>
+    </div>
+  </div>
+
+  <div class="title" id="title">Licencia</div>
+  <div class="subtitle" id="subtitle">Activa tu licencia para usar la aplicación</div>
+
+  <!-- Zona de entrada -->
+  <div id="entryArea">
+    <input type="text" id="keyInput" placeholder="XXXXX-XXXXX-XXXXX-XXXXX" spellcheck="false" autocomplete="off" autocapitalize="off" autofocus>
+    <button class="btn" id="verifyBtn">Verificar licencia</button>
+  </div>
+
+  <!-- Resultado -->
+  <div id="resultBox"></div>
+
+  <div class="buy hidden" id="buyLine"></div>
+  <div class="note" id="note"></div>
+</div>
+
+<script>
+/* =====================================================================
+   CONFIG — edita aquí (igual que las props del componente React).
+   IMPORTANTE: la API key de administrador de SellAuth JAMÁS va en el
+   cliente. validateUrl debe apuntar a TU backend. Ver ejemplo de
+   servidor en el README de sellauth/SellAuthLicensePage.tsx.
+   ===================================================================== */
+const CONFIG = {
+  appName: 'PhantomTweaks',
+  productName: 'Licencia Pro',
+  buyUrl: '',                    // p.ej. 'https://tu-tienda.sellauth.com/checkout/xxxx'
+  verifyUrl: '',                 // p.ej. 'https://tu-backend.com/api/verify-license'
+  storagePrefix: 'pt_license',   // prefijo de localStorage
+  defaultLang: 'es',             // 'es' | 'en'
+  theme: 'system',               // 'dark' | 'light' | 'system'
+  persist: true,                 // guardar la clave validada
+};
+
+/* ---------------------------- Textos ------------------------------- */
+const STR = {
+  es: {
+    title: 'Licencia',
+    subtitle: 'Activa tu licencia para usar la aplicación',
+    placeholder: 'XXXXX-XXXXX-XXXXX-XXXXX',
+    verify: 'Verificar licencia',
+    checking: 'Verificando…',
+    valid: 'Licencia válida',
+    validDesc: 'Tu licencia está activa',
+    invalid: 'Licencia no válida',
+    expired: 'Licencia caducada',
+    revoked: 'Licencia revocada',
+    error: 'No se pudo conectar con el servidor de licencias',
+    retry: 'Reintentar',
+    buy: 'Comprar licencia',
+    buyHint: '¿No tienes licencia?',
+    expiry: 'Caducidad',
+    lifetime: 'De por vida',
+    activations: 'Activaciones',
+    instance: 'Dispositivo',
+    persistHint: 'Licencia guardada en este dispositivo',
+    note: 'La verificación se hace contra tu servidor; la API key de SellAuth nunca viaja a esta página.',
+    needUrl: 'Configura verifyUrl en CONFIG para verificar la clave.',
+  },
+  en: {
+    title: 'License',
+    subtitle: 'Activate your license to use the app',
+    placeholder: 'XXXXX-XXXXX-XXXXX-XXXXX',
+    verify: 'Verify license',
+    checking: 'Verifying…',
+    valid: 'Valid license',
+    validDesc: 'Your license is active',
+    invalid: 'Invalid license',
+    expired: 'License expired',
+    revoked: 'License revoked',
+    error: 'Could not reach the license server',
+    retry: 'Retry',
+    buy: 'Buy license',
+    buyHint: "Don't have a license?",
+    expiry: 'Expires',
+    lifetime: 'Lifetime',
+    activations: 'Activations',
+    instance: 'Device',
+    persistHint: 'License saved on this device',
+    note: 'Verification runs against your server; the SellAuth API key never reaches this page.',
+    needUrl: 'Set verifyUrl in CONFIG to verify a key.',
+  },
+};
+
+/* ------------------------- Referencias DOM -------------------------- */
+const $ = (id) => document.getElementById(id);
+const keyInput = $('keyInput');
+const verifyBtn = $('verifyBtn');
+const resultBox = $('resultBox');
+const entryArea = $('entryArea');
+const buyLine = $('buyLine');
+const noteEl = $('note');
+
+let lang = CONFIG.defaultLang === 'en' ? 'en' : 'es';
+let savedKey = null;
+let instanceId = '';
+
+const KEY_STORE = CONFIG.storagePrefix + '_key';
+const INSTANCE_STORE = CONFIG.storagePrefix + '_instance_id';
+
+/* ---------------------------- Tema -------------------------------- */
+function applyTheme() {
+  const html = document.documentElement;
+  if (CONFIG.theme === 'system') {
+    const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    html.dataset.theme = dark ? 'dark' : 'light';
+  } else {
+    html.dataset.theme = CONFIG.theme;
+  }
+}
+applyTheme();
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+  if (CONFIG.theme === 'system') applyTheme();
+});
+
+/* ------------------------- ID de dispositivo ------------------------ */
+function getInstanceId() {
+  let id = '';
+  try { id = localStorage.getItem(INSTANCE_STORE) || ''; } catch (e) {}
+  if (id) return id;
+  id = (crypto && crypto.randomUUID) ? crypto.randomUUID()
+    : 'inst-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+  try { localStorage.setItem(INSTANCE_STORE, id); } catch (e) {}
+  return id;
+}
+
+/* ------------------------- Normalización ---------------------------- */
+function mapResult(json) {
+  const data = json && typeof json.data === 'object' ? json.data : (json || {});
+  const lk = data.license_key && typeof data.license_key === 'object' ? data.license_key : data;
+  const inst = data.instance && typeof data.instance === 'object' ? data.instance : null;
+  const valid = !!(data.valid ?? json?.valid ?? json?.success);
+  return {
+    valid,
+    status: typeof lk.status === 'string' ? lk.status : undefined,
+    key: typeof lk.key === 'string' ? lk.key : undefined,
+    expiresAt: typeof lk.expires_at === 'string' ? lk.expires_at : null,
+    isExpired: typeof lk.is_expired === 'number' ? lk.is_expired === 1 : undefined,
+    activationLimit: typeof lk.limit === 'number' ? lk.limit : null,
+    activationsUsed: typeof lk.instances_count === 'number' ? lk.instances_count : null,
+    instanceId: inst && inst.id ? String(inst.id) : undefined,
+    raw: json,
+  };
+}
+
+/* --------------------------- Verificación --------------------------- */
+async function verifyLicense(key) {
+  const res = await fetch(CONFIG.verifyUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({ license_key: key, instance_id: instanceId }),
+  });
+  let json = null;
+  try { json = await res.json(); } catch (e) {}
+  if (!res.ok) {
+    const reason = json?.reason || json?.error || json?.message || ('http_' + res.status);
+    return { ...mapResult(json || {}), valid: false, status: reason };
+  }
+  return mapResult(json);
+}
+
+/* ------------------------------ UI ---------------------------------- */
+function t(key) { return STR[lang][key] || key; }
+
+function setLang(next) {
+  lang = next;
+  $('langEs').classList.toggle('on', lang === 'es');
+  $('langEn').classList.toggle('on', lang === 'en');
+  renderStatic();
+  renderState();
+}
+
+function renderStatic() {
+  document.title = 'Licencia · ' + CONFIG.appName;
+  $('appName').textContent = CONFIG.appName;
+  $('productName').textContent = CONFIG.productName;
+  $('title').textContent = t('title');
+  $('subtitle').textContent = t('subtitle');
+  keyInput.placeholder = t('placeholder');
+  verifyBtn.textContent = t('verify');
+  noteEl.textContent = t('note');
+  if (!CONFIG.verifyUrl) {
+    resultBox.className = 'box warn';
+    resultBox.innerHTML = t('needUrl');
+  }
+}
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+  ));
+}
+
+function fmtDate(iso) {
+  if (!iso) return t('lifetime');
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return esc(iso);
+  return d.toLocaleDateString(lang === 'es' ? 'es-ES' : 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function row(label, value) {
+  return '<div class="row"><span>' + label + '</span><b>' + value + '</b></div>';
+}
+
+function renderState() {
+  if (validState) {
+    entryArea.classList.add('hidden');
+    const r = validState;
+    let rows = row(t('expiry'), fmtDate(r.expiresAt));
+    if (typeof r.activationLimit === 'number') {
+      rows += row(t('activations'), (r.activationsUsed ?? 0) + ' / ' + r.activationLimit);
+    }
+    if (r.instanceId) rows += row(t('instance'), esc(r.instanceId));
+    resultBox.className = 'box ok';
+    resultBox.innerHTML =
+      '<div class="valid-head"><span class="dot">✓</span>' + t('valid') + '</div>' +
+      '<div style="margin-top:10px">' + rows + '</div>' +
+      (CONFIG.persist ? '<div style="margin-top:10px;font-size:11px;color:var(--dim)">✓ ' + t('persistHint') + '</div>' : '');
+    buyLine.classList.add('hidden');
+    return;
+  }
+
+  entryArea.classList.remove('hidden');
+
+  if (!CONFIG.verifyUrl) return;
+
+  if (state.error) {
+    resultBox.className = 'box error';
+    resultBox.innerHTML =
+      esc(state.error) +
+      '<button class="btn-inline" onclick="doCheck()">' + t('retry') + '</button>';
+    buyLine.classList.remove('hidden');
+    return;
+  }
+
+  if (state.info && !state.info.valid) {
+    const st = state.info.status || '';
+    let msg;
+    if (state.info.isExpired || /expir/i.test(st)) msg = t('expired');
+    else if (/revok|ban|disable/i.test(st)) msg = t('revoked');
+    else msg = t('invalid');
+    resultBox.className = 'box error';
+    resultBox.innerHTML = esc(msg) + (CONFIG.buyUrl
+      ? '<a class="btn-inline" href="' + esc(CONFIG.buyUrl) + '" target="_blank" rel="noopener noreferrer">' + t('buy') + '</a>'
+      : '');
+    buyLine.classList.remove('hidden');
+    return;
+  }
+
+  resultBox.className = '';
+  resultBox.innerHTML = '';
+  buyLine.classList.remove('hidden');
+}
+
+function renderBuyLine() {
+  if (!CONFIG.buyUrl || validState) { buyLine.classList.add('hidden'); return; }
+  buyLine.classList.remove('hidden');
+  buyLine.innerHTML = t('buyHint') + ' <a class="btn-link" href="' + esc(CONFIG.buyUrl) + '" target="_blank" rel="noopener noreferrer">' + t('buy') + ' →</a>';
+}
+
+/* ------------------------------ Estado ------------------------------ */
+let state = { error: null, info: null }; // info = resultado normalizado
+let validState = null;
+
+async function doCheck() {
+  const key = keyInput.value.trim();
+  if (!key || !CONFIG.verifyUrl) return;
+  verifyBtn.disabled = true;
+  verifyBtn.textContent = t('checking');
+  resultBox.className = '';
+  resultBox.innerHTML = '';
+  try {
+    const info = await verifyLicense(key);
+    state = { error: null, info };
+    if (info.valid) {
+      validState = info;
+      if (CONFIG.persist) { try { localStorage.setItem(KEY_STORE, key); } catch (e) {} }
+    }
+  } catch (e) {
+    state = { error: e && e.message ? e.message : t('error'), info: null };
+  } finally {
+    verifyBtn.disabled = false;
+    verifyBtn.textContent = t('verify');
+    renderBuyLine();
+    renderState();
+  }
+}
+
+/* --------------------------- Inicialización ------------------------- */
+instanceId = getInstanceId();
+try { savedKey = localStorage.getItem(KEY_STORE); } catch (e) {}
+
+verifyBtn.addEventListener('click', doCheck);
+keyInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') doCheck(); });
+$('langEs').addEventListener('click', () => setLang('es'));
+$('langEn').addEventListener('click', () => setLang('en'));
+
+// Logo fantasma (mismo diseño que el icono oficial)
+$('logoBox').innerHTML =
+  '<svg width="20" height="20" viewBox="0 0 512 512" fill="none" aria-hidden="true">' +
+    '<defs><linearGradient id="ptg" x1="0" y1="0" x2="0" y2="1">' +
+      '<stop offset="0" stop-color="var(--accent)" stop-opacity="0.45"/>' +
+      '<stop offset="1" stop-color="var(--accent)" stop-opacity="0.9"/>' +
+    '</linearGradient></defs>' +
+    '<path d="M256 23C161 23 61 123 61 238V407H176V303c0-40 31-68 80-68s80 28 80 68V407H451V238C451 123 351 23 256 23Z" fill="url(#ptg)" stroke="var(--accent)" stroke-width="14" stroke-linejoin="round"/>' +
+    '<path d="M146 132h54c15 0 28 13 28 28s-13 28-28 28h-54c-15 0-28-13-28-28s13-28 28-28Z M312 132h54c15 0 28 13 28 28s-13 28-28 28h-54c-15 0-28-13-28-28s13-28 28-28Z" fill="#04140c"/>' +
+    '<path d="M161 145c9 3 15 9 17 17 M328 145c9 3 15 9 17 17" stroke="var(--accent)" stroke-width="10" stroke-linecap="round"/>' +
+    '<path d="M228 236h52c9 0 16 7 16 16 0 3-1 6-3 9l-37 61 9-38h-20c-9 0-16-7-16-16 0-3 1-6 3-9l11-17Z" fill="var(--accent)"/>' +
+  '</svg>';
+
+renderStatic();
+renderBuyLine();
+renderState();
+
+// Si hay clave guardada y está configurado, verifica automáticamente al abrir.
+if (CONFIG.verifyUrl && savedKey && CONFIG.persist) {
+  keyInput.value = savedKey;
+  doCheck();
+}
+</script>
+</body>
+</html>
