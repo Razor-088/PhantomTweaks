@@ -1,0 +1,34 @@
+services:
+  - type: web
+    name: phantomtweaks-license-server
+    runtime: node
+    rootDir: license-server
+    buildCommand: npm install && npm run build
+    startCommand: node dist/server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: LICENSE_SERVER_SECRET
+        generateValue: true
+      - key: ADMIN_USERNAME
+        value: admin
+      - key: ADMIN_PASSWORD
+        generateValue: true
+      - key: SELLAUTH_API_KEY
+        sync: false
+      - key: SELLAUTH_SHOP_ID
+        sync: false
+      - key: SELLAUTH_WEBHOOK_SECRET
+        sync: false
+      - key: LICENSE_SERVER_URL
+        sync: false
+      - key: STORE_URL
+        value: https://phantontweaks.sellauth.com
+      - key: OFFLINE_GRACE_DAYS
+        value: 7
+      - key: TOKEN_EXPIRY_HOURS
+        value: 24
