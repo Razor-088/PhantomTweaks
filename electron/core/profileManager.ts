@@ -104,12 +104,10 @@ export async function applyProfile(id: string): Promise<{ ok: boolean; applied: 
   // Memory clean
   if (profile.memoryClean) {
     try {
-      await runPS(`
-        $proc = Get-Process | Where-Object { $_.WorkingSet64 -gt 100MB } | Sort-Object WorkingSet64 -Descending | Select-Object -First 5
-        foreach ($p in $proc) { [System.GC]::Collect($p.Id, 2, $true) }
-        EmptyStandbyList 2>$null
-      `, 15000);
-      applied.push('Limpieza de memoria');
+      const { emptyStandbyList } = await import('./windowsTweaks.js');
+      const memResult = await emptyStandbyList();
+      if (memResult.ok) applied.push('Limpieza de memoria');
+      else errors.push(memResult.message);
     } catch { errors.push('Limpieza de memoria falló'); }
   }
 

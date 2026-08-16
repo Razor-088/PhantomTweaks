@@ -446,8 +446,13 @@ Get-Process | Where-Object { $_.Id -ne $PID -and $_.SessionId -eq (Get-Process -
 $count
 `;
   const r = await runPS(ps, 30000);
-  log('SUCCESS', 'performance', `Optimización de memoria completada (${r.stdout.trim()} procesos)`);
-  return { ok: r.code === 0, message: `${r.stdout.trim()} procesos optimizados.` };
+  const count = r.stdout.trim();
+  if (r.code === 0) {
+    log('SUCCESS', 'performance', `Optimización de memoria completada (${count} procesos)`);
+    return { ok: true, message: `${count} procesos optimizados.` };
+  }
+  log('ERROR', 'performance', `Optimización de memoria falló (code=${r.code}): ${r.stderr}`);
+  return { ok: false, message: 'No se pudo optimizar la memoria.' };
 }
 
 export async function emptyStandbyList(): Promise<{ ok: boolean; message: string }> {

@@ -24,18 +24,36 @@ export function runPS(script: string, timeoutMs = 30000): Promise<PSResult> {
       '-Command',
       script,
     ];
-    execFile(
+    let killed = false;
+    const proc = execFile(
       POWERSHELL,
       args,
       { timeout: timeoutMs, maxBuffer: 64 * 1024 * 1024, windowsHide: true },
       (err, stdout, stderr) => {
+        if (killed) return;
+        let code: number | null = 0;
+        if (err) {
+          const c = (err as any).code;
+          if (typeof c === 'number') code = c;
+          else if (typeof c === 'string' && c.startsWith('TIMEOUT')) code = -1;
+          else code = 1;
+        }
         resolve({
           stdout: stdout || '',
           stderr: stderr || '',
-          code: err ? ((err as any).code ?? 1) : 0,
+          code,
         });
       }
     );
+    proc.on('timeout', () => {
+      killed = true;
+      proc.kill();
+      resolve({
+        stdout: '',
+        stderr: 'Timeout exceeded',
+        code: -1,
+      });
+    });
   });
 }
 

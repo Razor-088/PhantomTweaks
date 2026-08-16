@@ -1,6 +1,7 @@
 import { runPS, runPSJson } from './ps';
 import { getDword, setDword, regQuery, regSet } from './registry';
 import { log } from './logging';
+import { isAdmin } from './admin';
 
 export interface InputDelayItem {
   id: string;
@@ -143,6 +144,9 @@ export async function applyInputDelay(itemId: string): Promise<{ ok: boolean; er
         return { ok: true };
 
       case 'timer_resolution':
+        if (!(await isAdmin())) {
+          return { ok: false, error: 'bcdedit requiere privilegios de administrador. Reinicia PhantomTweaks como administrador.' };
+        }
         await runPS('bcdedit /set useplatformclock yes', 10000);
         log('SUCCESS', 'inputDelay', 'Alta resolución de temporizador activada');
         return { ok: true };

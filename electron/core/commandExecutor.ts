@@ -11,28 +11,22 @@ export interface ExecResult {
 }
 
 const BLOCKED_PATTERNS: RegExp[] = [
-  /\bformat\b/i,
-  /\b(?:rd|rmdir|rm)\s+\/(?:s|r)/i,
-  /\bdel\s+\/(?:f|q)\b/i,
-  /remove-item\s+-?recurse/i,
-  /delete-\w+/i,
-  /stop-service/i,
-  /disable-\w+/i,
-  /remove-\w+/i,
-  /new-\w+/i,
-  /\breg\s+delete\b/i,
-  /\breg\s+add\b/i,
-  /shutdown\b/i,
-  /restart\b/i,
-  /taskkill\b/i,
-  /net\s+user\b/i,
-  /net\s+localgroup\b/i,
-  /sc\s+delete\b/i,
-  /\.bat\b/i,
-  /\.ps1\b/i,
-  /\.vbs\b/i,
-  /\.exe\s+-\w*\s*$/i,
-  /invoke-command/i,
+  /\bformat\s+[a-z]:/i,
+  /\b(?:rd|rmdir|rm)\s+\/(?:s|q)\s+[\\\/]/i,
+  /\bdel\s+\/(?:f|q|s)\s+[\\\/]/i,
+  /remove-item\s+-?recurse\s+[\\\/]/i,
+  /Remove-Item\s+['"]HKLM:/i,
+  /\breg\s+delete\s+HKLM/i,
+  /\bshutdown\s+(\/s|\/r|\/f)/i,
+  /\btaskkill\s+\/PID\s+\d+/i,
+  /net\s+user\s+\w+\s+\*/i,
+  /net\s+localgroup\s+Administrators/i,
+  /sc\s+delete\s+\w+/i,
+  /Format-Volume/i,
+  /Clear-Disk/i,
+  /Initialize-Disk/i,
+  /Set-Disk\s+-IsOffline/i,
+  /Invoke-Expression\s*\(/i,
   /start-process\s+-verb\s+runas/i,
 ];
 
@@ -77,9 +71,12 @@ export async function runTerminalCommand(command: string, mode: 'SAFE' | 'ADMIN'
 
   sink({ kind: 'info', text: `PS C:\\> ${command}\n` });
   const child = spawnPS(command);
+  let killed = false;
+
   const timer = setTimeout(() => {
+    killed = true;
     child.kill();
-      sink({ kind: 'err', text: '\n[PhantomTweaks] Tiempo excedido, el comando fue cancelado.\n' });
+    sink({ kind: 'err', text: '\n[PhantomTweaks] Tiempo excedido, el comando fue cancelado.\n' });
     sink({ kind: 'exit', text: 'TIMEOUT' });
   }, 30000);
 
@@ -87,12 +84,17 @@ export async function runTerminalCommand(command: string, mode: 'SAFE' | 'ADMIN'
   child.child.stderr?.on('data', (d) => sink({ kind: 'err', text: d.toString() }));
   child.child.on('close', (code) => {
     clearTimeout(timer);
-    sink({ kind: 'exit', text: String(code ?? 1) });
+    if (!killed) {
+      sink({ kind: 'exit', text: String(code ?? 1) });
+    }
   });
   child.child.on('error', () => {
     clearTimeout(timer);
-    sink({ kind: 'err', text: 'No se pudo iniciar el comando.' });
-    sink({ kind: 'exit', text: 'ERROR' });
+    if (!killed) {
+      killed = true;
+      sink({ kind: 'err', text: 'No se pudo iniciar el comando.' });
+      sink({ kind: 'exit', text: 'ERROR' });
+    }
   });
 
   log('INFO', 'terminal', `Comando ejecutado (${cls}): ${command}`);

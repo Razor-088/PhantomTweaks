@@ -2,6 +2,7 @@ import * as os from 'os';
 import { spawn, execFile } from 'child_process';
 import { runPS, runPSJson, spawnPS } from './ps';
 import { log } from './logging';
+import { isAdmin } from './admin';
 
 export interface NetInfo {
   status: string;
@@ -147,6 +148,11 @@ export async function flushDns(sink: ConsoleSink): Promise<void> {
 }
 
 export async function renewIp(sink: ConsoleSink): Promise<void> {
+  if (!(await isAdmin())) {
+    sink({ kind: 'err', text: '[PhantomTweaks] ipconfig /renew requiere privilegios de administrador.\n' });
+    sink({ kind: 'exit', text: 'BLOCKED' });
+    return;
+  }
   sink({ kind: 'info', text: 'Ejecutando: ipconfig /release + /renew (requiere administrador)\n' });
   await execStream('ipconfig.exe', ['/release'], sink, 30000);
   await execStream('ipconfig.exe', ['/renew'], sink, 60000);
@@ -158,6 +164,11 @@ export async function releaseIp(sink: ConsoleSink): Promise<void> {
 }
 
 export async function resetNetworkStack(sink: ConsoleSink): Promise<void> {
+  if (!(await isAdmin())) {
+    sink({ kind: 'err', text: '[PhantomTweaks] netsh winsock reset requiere privilegios de administrador. Reinicia PhantomTweaks como administrador.\n' });
+    sink({ kind: 'exit', text: 'BLOCKED' });
+    return;
+  }
   sink({ kind: 'info', text: 'Ejecutando: netsh winsock reset (requiere administrador y reinicio)\n' });
   await execStream('netsh.exe', ['winsock', 'reset'], sink, 30000);
   await execStream('netsh.exe', ['int', 'ip', 'reset'], sink, 30000);
