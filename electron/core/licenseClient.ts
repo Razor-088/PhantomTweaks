@@ -90,7 +90,7 @@ export async function getMachineId(): Promise<string> {
 function getServerUrl(): string {
   // In production, this will be set via environment variable or config
   // For now, fallback to localhost for development
-  return process.env.LICENSE_SERVER_URL || 'https://phantontweaks-license.onrender.com';
+  return process.env.LICENSE_SERVER_URL || 'https://phantomtweaks-license-server.onrender.com';
 }
 
 async function serverRequest(endpoint: string, body: Record<string, any>): Promise<any> {
@@ -262,4 +262,50 @@ export function getLicenseStatus(): { valid: boolean; license: LicenseData | nul
   }
   if (local.status !== 'active') return { valid: false, license: local, reason: local.status };
   return { valid: true, license: local };
+}
+
+// Async version that also validates against the server on startup
+export async function getLicenseStatusAsync(): Promise<{ valid: boolean; license: LicenseData | null; reason?: string }> {
+  const local = readLocalLicense();
+  if (!local) return { valid: false, license: null, reason: 'no_license' };
+
+  // Quick local checks first
+  if (local.status === 'revoked') return { valid: false, license: local, reason: 'revoked' };
+  if (local.status === 'suspended') return { valid: false, license: local, reason: 'suspended' };
+  if (local.expiresAt && new Date(local.expiresAt) < new Date()) {
+    return { valid: false, license: local, reason: 'expired' };
+  }
+  if (local.status !== 'active') return { valid: false, license: local, reason: local.status };
+
+  // Local says valid — verify against server
+  try {
+    const hwid = await getMachineId();
+    const result: LicenseResponse = await serverRequest('/api/license/validate', {
+      token: local.token,
+      hwid,
+    });
+
+    if (result.valid) {
+      local.lastValidation = new Date().toISOString();
+      if (result.license) {
+        local.expiresAt = result.license.expires_at;
+        local.licenseType = result.license.license_type;
+      }
+      writeLocalLicense(local);
+      return { valid: true, license: local };
+    } else {
+      // Server says invalid — revoke locally
+      local.status = result.error === 'revoked' ? 'revoked' : 'revoked';
+      writeLocalLicense(local);
+      return { valid: false, license: local, reason: result.error || 'revoked' };
+    }
+  } catch {
+    // Server unreachable — use offline grace period
+    const lastValidation = new Date(local.lastValidation);
+    const daysSince = (Date.now() - lastValidation.getTime()) / (1000 * 60 * 60 * 24);
+    if (daysSince <= local.offlineGraceDays) {
+      return { valid: true, license: local };
+    }
+    return { valid: false, license: local, reason: 'offline_expired' };
+  }
 }

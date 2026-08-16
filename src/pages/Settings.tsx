@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Settings as SettingsIcon, Palette, SlidersHorizontal, Info, Bell } from 'lucide-react';
+import { Settings as SettingsIcon, Palette, SlidersHorizontal, Info, Bell, ShieldCheck, Copy, Check } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { Card } from '../components/ui/Card';
 import { PageHeader } from '../components/ui/PageHeader';
@@ -58,10 +58,14 @@ export default function Settings() {
   const setSettings = useAppStore((s) => s.setSettings);
   const appInfo = useAppStore((s) => s.appInfo);
   const toast = useAppStore((s) => s.toast);
+  const licenseData = useAppStore((s) => s.licenseData);
+  const setLicenseActivated = useAppStore((s) => s.setLicenseActivated);
   const { t } = useI18n();
 
   const [startupEnabled, setStartupEnabled] = useState<boolean | null>(null);
   const [saving, setSaving] = useState(false);
+  const [changingLicense, setChangingLicense] = useState(false);
+  const [copiedKey, setCopiedKey] = useState(false);
 
   useEffect(() => {
     api.app
@@ -120,6 +124,41 @@ export default function Settings() {
     { value: 'detailed', label: t('settings.infoLevelDetailed') },
     { value: 'advanced', label: t('settings.infoLevelAdvanced') },
   ];
+
+  const changeLicense = async () => {
+    setChangingLicense(true);
+    try {
+      await api.license.deactivate();
+      setLicenseActivated(false);
+      toast('success', t('settings.licenseChanged'));
+    } catch (e: any) {
+      toast('error', t('settings.licenseChangeError'), e.message);
+    } finally {
+      setChangingLicense(false);
+    }
+  };
+
+  const copyLicenseKey = async () => {
+    if (!licenseData?.licenseKey) return;
+    try {
+      await navigator.clipboard.writeText(licenseData.licenseKey);
+      setCopiedKey(true);
+      toast('success', t('settings.licenseKeyCopied'));
+      setTimeout(() => setCopiedKey(false), 2000);
+    } catch {
+      toast('error', t('common.error'));
+    }
+  };
+
+  const licenseStatusKey = licenseData?.status === 'active'
+    ? 'settings.licenseActive'
+    : licenseData?.status === 'expired'
+    ? 'settings.licenseExpired'
+    : licenseData?.status === 'revoked'
+    ? 'settings.licenseRevoked'
+    : licenseData?.status === 'suspended'
+    ? 'settings.licenseSuspended'
+    : 'activation.error';
 
   return (
     <div className="max-w-[840px] mx-auto">
@@ -221,6 +260,51 @@ export default function Settings() {
             <span className="text-[11px] text-gmuted flex items-center gap-1">
               <Bell size={11} /> {t('settings.feedback')}
             </span>
+          </Row>
+        </Section>
+
+        <Section icon={ShieldCheck} titleKey="settings.license">
+          <Row label={t('settings.licenseStatus')}>
+            <span className={`text-[12.5px] font-semibold ${licenseData?.status === 'active' ? 'text-green-400' : 'text-red-400'}`}>
+              {t(licenseStatusKey)}
+            </span>
+          </Row>
+          {licenseData && (
+            <>
+              <Row label={t('settings.licenseType')}>
+                <span className="text-[12.5px] font-mono text-gmuted">{licenseData.licenseType}</span>
+              </Row>
+              <Row label={t('settings.licenseKey')}>
+                <div className="flex items-center gap-2">
+                  <span className="text-[12.5px] font-mono text-gmuted">
+                    {licenseData.licenseKey?.slice(0, 9)}••••
+                  </span>
+                  <button
+                    onClick={copyLicenseKey}
+                    className="p-1 rounded hover:bg-gborder/30 text-gdim hover:text-gaccent transition-colors"
+                    title={t('settings.licenseCopyKey')}
+                  >
+                    {copiedKey ? <Check size={12} className="text-green-400" /> : <Copy size={12} />}
+                  </button>
+                </div>
+              </Row>
+              <Row label={t('settings.licenseExpires')}>
+                <span className="text-[12.5px] font-mono text-gmuted">
+                  {licenseData.expiresAt
+                    ? new Date(licenseData.expiresAt).toLocaleDateString()
+                    : t('settings.licenseNever')}
+                </span>
+              </Row>
+            </>
+          )}
+          <Row label={t('settings.licenseChange')} desc={t('settings.licenseChangeDesc')}>
+            <button
+              onClick={changeLicense}
+              disabled={changingLicense}
+              className="px-3 py-1.5 text-[12px] font-medium rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-colors disabled:opacity-50"
+            >
+              {changingLicense ? t('settings.licenseChanging') : t('settings.licenseChange')}
+            </button>
           </Row>
         </Section>
       </div>

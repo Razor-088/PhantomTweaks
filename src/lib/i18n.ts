@@ -734,6 +734,25 @@ const es: Record<string, string> = {
   'activation.noLicense': '¿Todavía no tienes PhantomTweaks?',
   'activation.buyLicense': 'COMPRAR LICENCIA',
   'activation.secureConnection': 'Conexión segura',
+
+  // ---- settings: license ----
+  'settings.license': 'Licencia',
+  'settings.licenseStatus': 'Estado',
+  'settings.licenseActive': 'Licencia activa',
+  'settings.licenseExpired': 'Licencia expirada',
+  'settings.licenseRevoked': 'Licencia revocada',
+  'settings.licenseSuspended': 'Licencia suspendida',
+  'settings.licenseType': 'Tipo',
+  'settings.licenseKey': 'Clave',
+  'settings.licenseExpires': 'Expira',
+  'settings.licenseNever': 'Nunca',
+  'settings.licenseChange': 'Cambiar licencia',
+  'settings.licenseChangeDesc': 'Desactivar la licencia actual y activar otra',
+  'settings.licenseChanging': 'Desactivando…',
+  'settings.licenseChanged': 'Licencia desactivada. Reinicia PhantomTweaks para activar una nueva.',
+  'settings.licenseChangeError': 'No se pudo desactivar la licencia',
+  'settings.licenseCopyKey': 'Copiar clave',
+  'settings.licenseKeyCopied': 'Clave copiada al portapapeles',
 };
 
 const en: Record<string, string> = {
@@ -1436,6 +1455,25 @@ const en: Record<string, string> = {
   'activation.noLicense': "Don't have PhantomTweaks yet?",
   'activation.buyLicense': 'BUY LICENSE',
   'activation.secureConnection': 'Secure connection',
+
+  // ---- settings: license ----
+  'settings.license': 'License',
+  'settings.licenseStatus': 'Status',
+  'settings.licenseActive': 'License active',
+  'settings.licenseExpired': 'License expired',
+  'settings.licenseRevoked': 'License revoked',
+  'settings.licenseSuspended': 'License suspended',
+  'settings.licenseType': 'Type',
+  'settings.licenseKey': 'Key',
+  'settings.licenseExpires': 'Expires',
+  'settings.licenseNever': 'Never',
+  'settings.licenseChange': 'Change license',
+  'settings.licenseChangeDesc': 'Deactivate current license and activate a new one',
+  'settings.licenseChanging': 'Deactivating…',
+  'settings.licenseChanged': 'License deactivated. Restart PhantomTweaks to activate a new one.',
+  'settings.licenseChangeError': 'Could not deactivate license',
+  'settings.licenseCopyKey': 'Copy key',
+  'settings.licenseKeyCopied': 'Key copied to clipboard',
 };
 
 function fill(template: string, vars?: Vars): string {

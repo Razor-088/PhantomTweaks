@@ -68,7 +68,8 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "PhantomTweaks"
+      "shortcutName": "PhantomTweaks",
+      "include": "build/uninstall.nsh"
     },
     "electronLanguages": [
       "es",

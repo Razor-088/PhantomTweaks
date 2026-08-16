@@ -30,7 +30,7 @@ import { runTerminalCommand, classifyCommand, isBlocked, CommandClass } from './
 import { isAdmin, relaunchAsAdmin } from './core/admin';
 import { scanInputDelay, applyInputDelay } from './core/inputDelay';
 import { listProfiles, getProfile, saveProfile, deleteProfile, applyProfile, restoreProfile, detectRunningGames } from './core/profileManager';
-import { activateLicense, validateLicense, deactivateLocal, getLicenseStatus } from './core/licenseClient';
+import { activateLicense, validateLicense, deactivateLocal, getLicenseStatusAsync } from './core/licenseClient';
 
 export type Push = (channel: string, payload: any) => void;
 
@@ -293,7 +293,7 @@ export function registerIpc(getWin: () => BrowserWindow | null, push: Push) {
   ipcMain.handle('license:activate', (_e, key: string) => activateLicense(key));
   ipcMain.handle('license:validate', () => validateLicense());
   ipcMain.handle('license:deactivate', () => deactivateLocal());
-  ipcMain.handle('license:getStatus', () => getLicenseStatus());
+  ipcMain.handle('license:getStatus', () => getLicenseStatusAsync());
 
   startSnapshotTimer(win);
 }
