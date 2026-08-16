@@ -28,6 +28,8 @@ services:
         sync: false
       - key: STORE_URL
         value: https://phantontweaks.sellauth.com
+      - key: SELLAUTH_PRODUCT_MAP
+        sync: false
       - key: OFFLINE_GRACE_DAYS
         value: 7
       - key: TOKEN_EXPIRY_HOURS

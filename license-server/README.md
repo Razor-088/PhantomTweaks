@@ -48,11 +48,12 @@ PhantomTweaks.exe  →  License Server (Render)  →  PostgreSQL (Supabase)
 | `LICENSE_SERVER_SECRET` | Secreto aleatorio (ver abajo) | Sí |
 | `SELLAUTH_API_KEY` | De SellAuth > Settings > API | Sí |
 | `SELLAUTH_SHOP_ID` | De SellAuth > Settings | Sí |
-| `SELLAUTH_WEBHOOK_SECRET` | Del webhook en SellAuth | Sí |
+| `SELLAUTH_WEBHOOK_SECRET` | Del webhook en SellAuth (Miscellaneous) | Sí |
 | `LICENSE_SERVER_URL` | URL pública del servicio (ej: `https://phantontweaks-license.onrender.com`) | Sí |
 | `OFFLINE_GRACE_DAYS` | `7` | No |
 | `TOKEN_EXPIRY_HOURS` | `24` | No |
 | `STORE_URL` | `https://phantontweaks.sellauth.com` | No |
+| `SELLAUTH_PRODUCT_MAP` | `productID:tipo,productID:tipo` (ej: `123:lifetime,456:30d`) | No* |
 | `NODE_ENV` | `production` | No |
 
 5. **Create Web Service**
@@ -62,22 +63,19 @@ PhantomTweaks.exe  →  License Server (Render)  →  PostgreSQL (Supabase)
 node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
 ```
 
-### 3. SellAuth — Configurar webhook
+### 3. SellAuth — Configurar Dynamic Delivery
 
 1. Ve a tu dashboard de SellAuth > **Storefront > Configure > Webhooks**
 2. **Add webhook:**
    - **URL:** `https://tu-app.onrender.com/webhooks/sellauth`
-   - **Event:** Invoice completado/pagado
-3. Copia el **Webhook Secret** → pégalo como `SELLAUTH_WEBHOOK_SECRET` en Render
+   - **Event:** `INVOICE.ITEM.DELIVER-DYNAMIC` (Dynamic Delivery)
+3. Copia el **Webhook Secret** (Storefront > Configure > Miscellaneous) → pégalo como `SELLAUTH_WEBHOOK_SECRET` en Render
 4. Ve a tu dashboard > **Products** y copia los product IDs
-5. Edita `src/routes/webhook.ts` → `mapProductToLicenseType()` con tus IDs:
-   ```typescript
-   const mappings: Record<string, string> = {
-     'TU_PRODUCT_ID_LIFETIME': 'lifetime',
-     'TU_PRODUCT_ID_30D': '30d',
-     'TU_PRODUCT_ID_1Y': '1y',
-   };
+5. En Render, configura `SELLAUTH_PRODUCT_MAP`:
    ```
+   12345:lifetime,67890:30d,99999:1y
+   ```
+   Formato: `productID:tipoLicencia` separados por comas
 6. Haz commit + push para actualizar el servidor en Render
 
 ### 4. Verificar

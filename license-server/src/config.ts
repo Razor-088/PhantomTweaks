@@ -19,4 +19,7 @@ export const config = {
   tokenExpiryHours: parseInt(process.env.TOKEN_EXPIRY_HOURS || '24', 10),
 
   storeUrl: process.env.STORE_URL || 'https://phantontweaks.sellauth.com',
+
+  // Product ID → license type mapping (e.g. "123:lifetime,456:30d,789:1y")
+  sellauthProductMap: process.env.SELLAUTH_PRODUCT_MAP || '',
 };

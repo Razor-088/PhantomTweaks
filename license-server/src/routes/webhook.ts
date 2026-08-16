@@ -6,102 +6,142 @@ import { log } from '../utils/logger';
 
 const router = Router();
 
-interface SellAuthInvoice {
-  id: string;
+// ── SellAuth Dynamic Delivery payload types ──
+interface SellAuthItem {
+  id: number;
+  invoice_id: number;
+  product_id: number;
+  variant_id: number;
   status: string;
-  product_id?: string;
-  customer?: {
-    id: string;
-    email: string;
-  };
-  items?: Array<{
-    product_id: string;
-    variant_id?: string;
-    quantity: number;
-  }>;
+  price: string;
+  quantity: number;
+  total_price: string;
+  custom_fields?: Record<string, string>;
+}
+
+interface SellAuthCustomer {
+  id: number;
+  shop_id: number;
+  email: string;
+}
+
+interface SellAuthDynamicWebhook {
+  event: string;
+  id: number;
+  unique_id: string;
+  status: string;
+  email: string;
+  ip: string;
+  country_code: string;
+  shop_id: number;
+  shop_customer_id: number;
+  created_at: string;
+  completed_at: string;
+  customer: SellAuthCustomer;
+  item: SellAuthItem;
 }
 
 router.post('/webhooks/sellauth', async (req: Request, res: Response) => {
-  const rawBody = (req as any).rawBody;
-  const signature = req.headers['x-signature'] as string;
-  const timestamp = req.headers['x-timestamp'] as string;
+  // ── 1. Verify signature ──
+  const rawBody = (req as any).rawBody as string | undefined;
+  const signature = req.headers['x-signature'] as string | undefined;
 
-  // Verify webhook signature if secret is configured
-  if (config.sellauthWebhookSecret && signature) {
-    const payload = rawBody || JSON.stringify(req.body);
-    if (!verifyWebhookSignature(payload, signature, config.sellauthWebhookSecret)) {
-      log('WARN', 'webhook', 'Firma de webhook inválida');
-      return res.status(401).json({ error: 'Invalid signature' });
-    }
+  if (!config.sellauthWebhookSecret) {
+    log('ERROR', 'webhook', 'SELLAUTH_WEBHOOK_SECRET not configured — rejecting webhook.');
+    return res.status(500).send('Server misconfiguration');
   }
 
-  const event = req.body;
+  if (!rawBody || !signature) {
+    log('WARN', 'webhook', 'Missing raw body or signature header');
+    return res.status(401).send('Missing signature');
+  }
 
-  log('INFO', 'webhook', `SellAuth webhook recibido: ${JSON.stringify(event).slice(0, 200)}`);
+  if (!verifyWebhookSignature(rawBody, signature, config.sellauthWebhookSecret)) {
+    log('WARN', 'webhook', 'Invalid webhook signature');
+    return res.status(401).send('Invalid signature');
+  }
 
+  const event: SellAuthDynamicWebhook = req.body;
+
+  log('INFO', 'webhook', `Webhook recibido: event=${event.event} invoice=${event.id} item_id=${event.item?.id}`);
+
+  // ── 2. Only handle DYNAMIC DELIVERY events ──
+  if (event.event !== 'INVOICE.ITEM.DELIVER-DYNAMIC') {
+    log('INFO', 'webhook', `Evento ignorado: ${event.event}`);
+    return res.status(200).send('Event type not handled');
+  }
+
+  // ── 3. Validate required fields ──
+  if (!event.id || !event.item || !event.item.product_id) {
+    log('WARN', 'webhook', 'Payload incompleto — campos requeridos faltantes');
+    return res.status(400).send('Invalid payload');
+  }
+
+  // ── 4. Check product mapping ──
+  const productId = String(event.item.product_id);
+  const licenseType = mapProductToLicenseType(productId);
+
+  if (!licenseType) {
+    log('WARN', 'webhook', `Product ID ${productId} no tiene mapeo de licencia configurado`);
+    return res.status(400).send('Product not configured');
+  }
+
+  // ── 5. Deduplicate using unique_id ──
+  const existing = await getLicenseByOrder(event.unique_id);
+  if (existing) {
+    log('INFO', 'webhook', `Duplicado ignorado: unique_id=${event.unique_id}`);
+    return res.status(200).send(existing.license_key);
+  }
+
+  // ── 6. Create license ──
   try {
-    // Handle different webhook types
-    // SellAuth sends invoice data when an order is completed
-    if (event && event.id && event.status) {
-      const invoice = event as SellAuthInvoice;
+    const lic = await createLicense({
+      licenseType,
+      maxActivations: 1,
+      sellauthOrderId: event.unique_id,
+      sellauthCustomerId: String(event.customer?.id || ''),
+      sellauthCustomerEmail: event.customer?.email || event.email || '',
+    });
 
-      if (invoice.status === 'completed' || invoice.status === 'paid') {
-        // Check if we already created a license for this order (idempotent)
-        const existing = await getLicenseByOrder(invoice.id);
-        if (existing) {
-          log('INFO', 'webhook', `Duplicado ignorado: order=${invoice.id}`);
-          return res.json({ ok: true, message: 'Already processed' });
-        }
+    logActivity(
+      lic.license_key,
+      'webhook_created',
+      `Created via Dynamic Delivery. Invoice: ${event.id}, Email: ${event.email}`,
+      event.ip,
+    );
 
-        // Determine license type from product_id
-        // Map your SellAuth product IDs to license types here
-        const productId = invoice.product_id || (invoice.items && invoice.items[0]?.product_id) || '';
-        const licenseType = mapProductToLicenseType(productId);
+    log('SUCCESS', 'webhook', `Licencia creada: ${lic.license_key} (invoice=${event.id})`);
 
-        const lic = await createLicense({
-          licenseType,
-          maxActivations: 1,
-          sellauthOrderId: invoice.id,
-          sellauthCustomerId: invoice.customer?.id,
-          sellauthCustomerEmail: invoice.customer?.email,
-        });
-
-        log('SUCCESS', 'webhook', `Licencia creada via webhook: ${lic.license_key} order=${invoice.id}`);
-
-        // Return the license key — SellAuth can include it in the delivery email
-        return res.json({
-          ok: true,
-          license_key: lic.license_key,
-          message: 'License created',
-        });
-      }
-
-      // Other statuses (cancelled, refunded, etc.) — just acknowledge
-      return res.json({ ok: true, message: 'Ignored status: ' + invoice.status });
-    }
-
-    // Unknown webhook format
-    log('WARN', 'webhook', `Formato de webhook desconocido: ${JSON.stringify(event).slice(0, 200)}`);
-    return res.json({ ok: true, message: 'Acknowledged' });
+    // ── 7. Return plain text — SellAuth shows this to the customer ──
+    return res.status(200).send(lic.license_key);
 
   } catch (err: any) {
-    log('ERROR', 'webhook', `Error procesando webhook: ${err.message}`);
-    return res.status(500).json({ error: 'Internal error' });
+    log('ERROR', 'webhook', `Error creando licencia: ${err.message}`);
+    return res.status(500).send('Error creating license');
   }
 });
 
-function mapProductToLicenseType(productId: string): string {
-  // Configure these mappings based on your SellAuth product IDs
-  // You can find product IDs in your SellAuth dashboard
+function mapProductToLicenseType(productId: string): string | null {
+  // Map SellAuth product IDs to license types via env vars
+  // Format: SELLAUTH_PRODUCT_MAP="123:lifetime,456:30d,789:1y"
+  const mapStr = config.sellauthProductMap || '';
 
-  const mappings: Record<string, string> = {
-    // 'SELLAUTH_PRODUCT_ID_LIFETIME': 'lifetime',
-    // 'SELLAUTH_PRODUCT_ID_30D': '30d',
-    // 'SELLAUTH_PRODUCT_ID_90D': '90d',
-    // 'SELLAUTH_PRODUCT_ID_1Y': '1y',
-  };
+  if (!mapStr) {
+    // Fallback: if no mapping configured, default to lifetime
+    log('WARN', 'webhook', 'SELLAUTH_PRODUCT_MAP not configured — using default "lifetime"');
+    return 'lifetime';
+  }
 
-  return mappings[productId] || 'lifetime';
+  const pairs = mapStr.split(',').map(s => s.trim());
+  for (const pair of pairs) {
+    const [id, type] = pair.split(':').map(s => s.trim());
+    if (id === productId) {
+      return type || 'lifetime';
+    }
+  }
+
+  // Product ID not found in mapping
+  return null;
 }
 
 export default router;
