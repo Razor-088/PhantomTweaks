@@ -17,6 +17,8 @@ import {
   Timer,
   ChevronsLeft,
   ChevronsRight,
+  MonitorDot,
+  Crosshair,
 } from 'lucide-react';
 import { useAppStore, PageId } from '../store/useAppStore';
 import { useI18n } from '../lib/i18n';
@@ -44,6 +46,8 @@ const NAV_GROUPS: Array<{
       { id: 'network', icon: Wifi },
       { id: 'inputdelay', icon: Timer },
       { id: 'realtime', icon: Zap },
+      { id: 'nvidia', icon: MonitorDot },
+      { id: 'gameopt', icon: Crosshair },
     ],
   },
   {

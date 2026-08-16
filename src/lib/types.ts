@@ -356,3 +356,86 @@ export interface GameProfile {
   autoApply: boolean;
   createdAt: string;
 }
+
+// ---- nvidia ----
+
+export interface NvidiaGpu {
+  name: string;
+  driverVersion: string;
+  vramMb: number;
+  temperature: number | null;
+  utilizationPct: number | null;
+  powerDrawW: number | null;
+  powerLimitW: number | null;
+  clockMhz: number | null;
+  memoryClockMhz: number | null;
+  pciBus: number;
+  index: number;
+}
+
+export interface NvidiaProfile {
+  id: string;
+  name: string;
+  powerMgmt: 'adaptive' | 'preferMax' | 'optimal';
+  textureFilterQuality: 'quality' | 'highQuality' | 'performance' | 'highPerformance';
+  textureFilterTrilinear: 'on' | 'off';
+  anisotropicFiltering: 'auto' | 'on' | 'off';
+  antiAliasingMode: 'applicationControlled' | 'enhance' | 'override';
+  antiAliasingTransparency: 'off' | 'multisample' | 'supersample';
+  cudaGpus: 'all' | 'auto';
+  shaderCacheSize: 'driverDefault' | 'unlimited' | 'disabled';
+  powerManagementMode: 'optimal' | 'adaptive' | 'preferMaxPerformance';
+  preRenderLimit: number;
+  monitorTechnology: 'gSync' | 'fixedRefresh' | 'auto';
+  lowLatencyMode: 'off' | 'on' | 'ultra';
+  vsyncMode: 'applicationControlled' | 'forceOff' | 'forceOn' | 'adaptive';
+  maxFrameRate: number;
+  createdAt: string;
+}
+
+export interface NvidiaPreset {
+  id: string;
+  name: string;
+  description: string;
+}
+
+export interface NvidiaSystemInfo {
+  available: boolean;
+  gpus: NvidiaGpu[];
+  driverOutdated: boolean;
+  driverVersion: string | null;
+}
+
+// ---- game optimizer ----
+
+export interface DetectedGame {
+  id: string;
+  name: string;
+  exe: string | null;
+  platform: 'steam' | 'epic' | 'riot' | 'xbox' | 'gog' | 'other';
+  installPath: string | null;
+  running: boolean;
+  pid: number | null;
+}
+
+export interface GameOptimization {
+  id: string;
+  gameId: string;
+  name: string;
+  applyPowerPlan: boolean;
+  memoryClean: boolean;
+  priority: 'normal' | 'high' | 'realtime';
+  gameDvrOff: boolean;
+  fullscreenOptOff: boolean;
+  gameModeOn: boolean;
+  networkOptimize: boolean;
+  cpuCoreAffinity: number | null;
+  autoApply: boolean;
+  createdAt: string;
+}
+
+export interface GameBoostStatus {
+  activeOptimizations: string[];
+  runningGames: string[];
+  totalOptimizations: number;
+}

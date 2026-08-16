@@ -25,6 +25,12 @@ const ALLOWED_INVOKE = new Set([
   'input-delay:scan', 'input-delay:apply',
   'profiles:list', 'profiles:get', 'profiles:save', 'profiles:delete', 'profiles:apply', 'profiles:restore', 'profiles:detectGames',
   'license:activate', 'license:validate', 'license:deactivate', 'license:getStatus',
+  'nvidia:systemInfo', 'nvidia:gpus', 'nvidia:available', 'nvidia:smi',
+  'nvidia:profiles', 'nvidia:getProfile', 'nvidia:saveProfile', 'nvidia:deleteProfile',
+  'nvidia:applyProfile', 'nvidia:applyPreset', 'nvidia:presets',
+  'games:installed', 'games:running', 'games:optimizations', 'games:getOptimization',
+  'games:saveOptimization', 'games:deleteOptimization', 'games:applyOptimization',
+  'games:deactivateOptimization', 'games:boostStatus',
 ]);
 
 const ALLOWED_ON = new Set([

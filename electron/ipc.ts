@@ -31,6 +31,16 @@ import { isAdmin, relaunchAsAdmin } from './core/admin';
 import { scanInputDelay, applyInputDelay } from './core/inputDelay';
 import { listProfiles, getProfile, saveProfile, deleteProfile, applyProfile, restoreProfile, detectRunningGames } from './core/profileManager';
 import { activateLicense, validateLicense, deactivateLocal, getLicenseStatusAsync } from './core/licenseClient';
+import {
+  detectNvidiaGpus, isNvidiaAvailable, getNvidiaSmiOutput,
+  listNvidiaProfiles, getNvidiaProfile, saveNvidiaProfile, deleteNvidiaProfile,
+  applyNvidiaProfile, applyPresetProfile, getPresetProfiles, getNvidiaSystemInfo
+} from './core/nvidiaProfiles';
+import {
+  detectInstalledGames, detectRunningGames as detectRunningGamesOpt,
+  listGameOptimizations, getGameOptimization, saveGameOptimization, deleteGameOptimization,
+  applyGameOptimization, deactivateGameOptimization, getGameBoostStatus
+} from './core/gameOptimizer';
 
 export type Push = (channel: string, payload: any) => void;
 
@@ -294,6 +304,30 @@ export function registerIpc(getWin: () => BrowserWindow | null, push: Push) {
   ipcMain.handle('license:validate', () => validateLicense());
   ipcMain.handle('license:deactivate', () => deactivateLocal());
   ipcMain.handle('license:getStatus', () => getLicenseStatusAsync());
+
+  // ---------- nvidia ----------
+  ipcMain.handle('nvidia:systemInfo', () => getNvidiaSystemInfo());
+  ipcMain.handle('nvidia:gpus', () => detectNvidiaGpus());
+  ipcMain.handle('nvidia:available', () => isNvidiaAvailable());
+  ipcMain.handle('nvidia:smi', () => getNvidiaSmiOutput());
+  ipcMain.handle('nvidia:profiles', () => listNvidiaProfiles());
+  ipcMain.handle('nvidia:getProfile', (_e, id: string) => getNvidiaProfile(id) || null);
+  ipcMain.handle('nvidia:saveProfile', (_e, profile: any) => saveNvidiaProfile(profile));
+  ipcMain.handle('nvidia:deleteProfile', (_e, id: string) => deleteNvidiaProfile(id));
+  ipcMain.handle('nvidia:applyProfile', (_e, id: string) => applyNvidiaProfile(id));
+  ipcMain.handle('nvidia:applyPreset', (_e, presetId: string) => applyPresetProfile(presetId));
+  ipcMain.handle('nvidia:presets', () => getPresetProfiles());
+
+  // ---------- game optimizer ----------
+  ipcMain.handle('games:installed', () => detectInstalledGames());
+  ipcMain.handle('games:running', () => detectRunningGamesOpt());
+  ipcMain.handle('games:optimizations', () => listGameOptimizations());
+  ipcMain.handle('games:getOptimization', (_e, id: string) => getGameOptimization(id) || null);
+  ipcMain.handle('games:saveOptimization', (_e, opt: any) => saveGameOptimization(opt));
+  ipcMain.handle('games:deleteOptimization', (_e, id: string) => deleteGameOptimization(id));
+  ipcMain.handle('games:applyOptimization', (_e, id: string) => applyGameOptimization(id));
+  ipcMain.handle('games:deactivateOptimization', (_e, id: string) => deactivateGameOptimization(id));
+  ipcMain.handle('games:boostStatus', () => getGameBoostStatus());
 
   startSnapshotTimer(win);
 }

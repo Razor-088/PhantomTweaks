@@ -17,7 +17,9 @@ export type PageId =
   | 'logs'
   | 'settings'
   | 'inputdelay'
-  | 'realtime';
+  | 'realtime'
+  | 'nvidia'
+  | 'gameopt';
 
 export interface Toast {
   id: number;

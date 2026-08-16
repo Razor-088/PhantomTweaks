@@ -26,6 +26,8 @@ const Logs = React.lazy(() => import('./pages/Logs'));
 const Settings = React.lazy(() => import('./pages/Settings'));
 const InputDelay = React.lazy(() => import('./pages/InputDelay'));
 const RealTimeOptimizer = React.lazy(() => import('./pages/RealTimeOptimizer'));
+const NvidiaSettings = React.lazy(() => import('./pages/NvidiaSettings'));
+const GameOptimizer = React.lazy(() => import('./pages/GameOptimizer'));
 
 function resolveTheme(pref: AppSettings['theme']): 'dark' | 'light' {
   if (pref === 'system') {
@@ -138,7 +140,7 @@ export default function App() {
 
   useEffect(() => {
     const off = api.on('navigate:page', (p: string) => {
-      if (['dashboard', 'optimizer', 'gaming', 'performance', 'cleanup', 'startup', 'services', 'processes', 'network', 'privacy', 'tools', 'restore', 'logs', 'settings', 'inputdelay', 'realtime'].includes(p)) {
+      if (['dashboard', 'optimizer', 'gaming', 'performance', 'cleanup', 'startup', 'services', 'processes', 'network', 'privacy', 'tools', 'restore', 'logs', 'settings', 'inputdelay', 'realtime', 'nvidia', 'gameopt'].includes(p)) {
         setPage(p as PageId);
       }
     });
@@ -192,6 +194,8 @@ export default function App() {
       case 'settings': return <Settings />;
       case 'inputdelay': return <InputDelay />;
       case 'realtime': return <RealTimeOptimizer />;
+      case 'nvidia': return <NvidiaSettings />;
+      case 'gameopt': return <GameOptimizer />;
       default: return <Dashboard />;
     }
   };
