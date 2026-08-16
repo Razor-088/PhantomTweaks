@@ -1,7 +1,6 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import * as crypto from 'crypto';
 import { config } from './config';
 import { getPool, closePool } from './database/pool';
 import { runMigrations } from './database/migrate';
@@ -91,7 +90,7 @@ async function start() {
   try {
     const pool = getPool();
     const check = await pool.query('SELECT id FROM admin_users WHERE username = $1', [config.adminUsername]);
-    if (check.rowCount === 0) {
+    if (check.rows.length === 0) {
       const { hashPassword } = await import('./utils/crypto');
       const hash = await hashPassword(config.adminPassword);
       await pool.query(
@@ -99,9 +98,12 @@ async function start() {
         [config.adminUsername, hash]
       );
       log('SUCCESS', 'database', `Admin user '${config.adminUsername}' created.`);
+    } else {
+      log('INFO', 'database', `Admin user '${config.adminUsername}' already exists.`);
     }
   } catch (err: any) {
-    log('WARN', 'database', `Could not seed admin user: ${err.message}`);
+    log('ERROR', 'database', `Could not seed admin user: ${err.message}`);
+    process.exit(1);
   }
 
   // Start listening

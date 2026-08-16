@@ -8,7 +8,6 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "dev": "tsx watch src/server.ts",
-    "migrate": "node dist/database/migrate.js",
     "typecheck": "tsc --noEmit",
     "test": "node --test dist/tests/*.test.js"
   },
