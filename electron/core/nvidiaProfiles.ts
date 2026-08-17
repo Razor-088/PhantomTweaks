@@ -1,5 +1,6 @@
 import { runPS, runPSJson } from './ps';
 import { log } from './logging';
+import { createScheduleWrite } from '../shared/scheduleWrite';
 
 export interface NvidiaGpu {
   name: string;
@@ -50,22 +51,7 @@ function loadProfiles(): NvidiaProfile[] {
   return profilesCache!;
 }
 
-let writeTimer: NodeJS.Timeout | null = null;
-
-function scheduleWrite() {
-  if (writeTimer) return;
-  writeTimer = setTimeout(() => {
-    writeTimer = null;
-    try {
-      const { ensureFile, dataFile } = require('./paths');
-      require('fs').writeFileSync(
-        ensureFile(NVIDIA_PROFILES_FILE),
-        JSON.stringify(profilesCache, null, 2),
-        'utf-8'
-      );
-    } catch { /* ignore */ }
-  }, 300);
-}
+const scheduleWrite = createScheduleWrite(() => profilesCache, NVIDIA_PROFILES_FILE);
 
 export async function detectNvidiaGpus(): Promise<NvidiaGpu[]> {
   const ps = `
@@ -228,27 +214,6 @@ export function deleteNvidiaProfile(id: string): { ok: boolean } {
   scheduleWrite();
   log('SYSTEM', 'nvidia', `Perfil NVIDIA eliminado: ${id}`);
   return { ok: true };
-}
-
-function buildNvidiaSmiTweakArgs(profile: NvidiaProfile): string[] {
-  const args: string[] = [];
-
-  const powerMap: Record<string, string> = {
-    adaptive: '1',
-    preferMax: '2',
-    optimal: '0',
-  };
-  args.push('-pl', powerMap[profile.powerMgmt] || '1');
-
-  const perfMap: Record<string, string> = {
-    quality: '0x00000001',
-    highQuality: '0x00000002',
-    performance: '0x00000003',
-    highPerformance: '0x00000004',
-  };
-  args.push('-taa', profile.antiAliasingMode === 'applicationControlled' ? '0x00000000' : '0x00000001');
-
-  return args;
 }
 
 export async function applyNvidiaProfile(

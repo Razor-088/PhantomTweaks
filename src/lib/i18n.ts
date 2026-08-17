@@ -38,13 +38,13 @@ const es: Record<string, string> = {
   // ---- navigation ----
   'nav.dashboard': 'Inicio',
   'nav.optimizer': 'Optimizar',
-  'nav.gaming': 'Juegos',
+  'nav.gaminghub': 'Gaming Hub',
   'nav.performance': 'Rendimiento',
   'nav.cleanup': 'Limpieza',
-  'nav.startup': 'Inicio de Windows',
-  'nav.services': 'Servicios',
-  'nav.processes': 'Procesos',
+  'nav.systemmgr': 'Gestor del Sistema',
   'nav.network': 'Red',
+  'nav.nvidia': 'NVIDIA / GPU',
+  'nav.inputdelay': 'Input Delay',
   'nav.privacy': 'Privacidad',
   'nav.tools': 'Herramientas',
   'nav.restore': 'Restaurar cambios',
@@ -699,8 +699,6 @@ const es: Record<string, string> = {
   'inputDelay.appliedToast': 'Tweak aplicado',
   'inputDelay.appliedDesc': 'El cambio se ha aplicado correctamente',
   'inputDelay.applyError': 'No se pudo aplicar el tweak',
-  'nav.inputdelay': 'Input Delay',
-  'nav.realtime': 'Optimizador RT',
 
   // ---- realtime optimizer ----
   'realtime.title': 'Optimizador en Tiempo Real',
@@ -807,8 +805,6 @@ const es: Record<string, string> = {
   'gameOpt.deactivated': 'Optimización desactivada',
   'gameOpt.deactivatedDesc': 'Se ha restaurado la configuración.',
   'gameOpt.deleted': 'Perfil eliminado',
-  'nav.nvidia': 'NVIDIA',
-  'nav.gameopt': 'Game Optimizer',
 };
 
 const en: Record<string, string> = {
@@ -842,13 +838,13 @@ const en: Record<string, string> = {
 
   'nav.dashboard': 'Dashboard',
   'nav.optimizer': 'Optimizer',
-  'nav.gaming': 'Gaming',
+  'nav.gaminghub': 'Gaming Hub',
   'nav.performance': 'Performance',
   'nav.cleanup': 'Cleanup',
-  'nav.startup': 'Startup',
-  'nav.services': 'Services',
-  'nav.processes': 'Processes',
+  'nav.systemmgr': 'System Manager',
   'nav.network': 'Network',
+  'nav.nvidia': 'NVIDIA / GPU',
+  'nav.inputdelay': 'Input Delay',
   'nav.privacy': 'Privacy',
   'nav.tools': 'Tools',
   'nav.restore': 'Restore Center',
@@ -1476,8 +1472,6 @@ const en: Record<string, string> = {
   'inputDelay.appliedToast': 'Tweak applied',
   'inputDelay.appliedDesc': 'The change has been applied successfully',
   'inputDelay.applyError': 'Could not apply the tweak',
-  'nav.inputdelay': 'Input Delay',
-  'nav.realtime': 'RT Optimizer',
 
   // ---- realtime optimizer ----
   'realtime.title': 'Real-Time Optimizer',
@@ -1584,8 +1578,6 @@ const en: Record<string, string> = {
   'gameOpt.deactivated': 'Optimization deactivated',
   'gameOpt.deactivatedDesc': 'Configuration has been restored.',
   'gameOpt.deleted': 'Profile deleted',
-  'nav.nvidia': 'NVIDIA',
-  'nav.gameopt': 'Game Optimizer',
 };
 
 function fill(template: string, vars?: Vars): string {

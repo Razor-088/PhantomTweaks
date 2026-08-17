@@ -5,9 +5,8 @@ import { regQuery } from './registry';
 import { addChange, revertChange, applyRegistryChange, ChangeCategory } from './restoreManager';
 import { getLatency } from './networkTools';
 import { log } from './logging';
-
-const ULTRA_GUID = 'e9a42b02-d5df-448d-aa00-03f14749eb61';
-const HIGH_GUID = '8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c';
+import { getActiveSchemeGuid } from '../shared/powercfg';
+import { POWER_GUIDS } from '../shared/constants';
 
 export interface BoostStatus {
   gaming: {
@@ -93,12 +92,6 @@ export function getBoostStatus(): BoostStatus {
     st.network.pingAfter = s.network.pingAfter;
   }
   return st;
-}
-
-async function getActiveSchemeGuid(): Promise<string | null> {
-  const r = await runPS(`powercfg /getactivescheme`, 15000);
-  const m = r.stdout.match(/\(([0-9a-fA-F-]{36})\)/);
-  return m ? m[1].toLowerCase() : null;
 }
 
 /** Apply a registry change recorded in the Restore Center. Returns changeId or null if already set. */
@@ -197,13 +190,13 @@ export async function boostGamingStart(): Promise<BoostStatus> {
   // 1) Power plan -> Ultimate / High performance (reversible)
   try {
     const prev = await getActiveSchemeGuid();
-    const target = prev === HIGH_GUID ? HIGH_GUID : ULTRA_GUID;
-    const want = prev === HIGH_GUID ? HIGH_GUID : ULTRA_GUID;
+    const target = prev === POWER_GUIDS.HIGH_PERF ? POWER_GUIDS.HIGH_PERF : POWER_GUIDS.ULTRA;
+    const want = prev === POWER_GUIDS.HIGH_PERF ? POWER_GUIDS.HIGH_PERF : POWER_GUIDS.ULTRA;
     if (prev === want) {
       details.push('Plan de energía: ya estaba en rendimiento máximo.');
     } else {
-      const ultra = await runPS(`powercfg -list | Select-String -Pattern '${ULTRA_GUID}'`, 15000);
-      const guid = ultra.stdout.trim() ? ULTRA_GUID : HIGH_GUID;
+      const ultra = await runPS(`powercfg -list | Select-String -Pattern '${POWER_GUIDS.ULTRA}'`, 15000);
+      const guid = ultra.stdout.trim() ? POWER_GUIDS.ULTRA : POWER_GUIDS.HIGH_PERF;
       const res = await setPowerPlan(guid);
       if (res.ok) {
         const rec = addChange({
@@ -212,7 +205,7 @@ export async function boostGamingStart(): Promise<BoostStatus> {
           category: 'gaming',
           action: `Plan activo cambiado a rendimiento máximo (antes: ${prev || 'desconocido'})`,
           reversible: true,
-          payload: { kind: 'powercfg', schemeGuid: prev || HIGH_GUID, schemeName: 'plan anterior' },
+          payload: { kind: 'powercfg', schemeGuid: prev || POWER_GUIDS.HIGH_PERF, schemeName: 'plan anterior' },
         });
         changeIds.push(rec.id);
         details.push('Plan de energía: rendimiento máximo activado.');

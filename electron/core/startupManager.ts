@@ -128,7 +128,7 @@ $entries | ConvertTo-Json -Depth 3 -Compress
       id: entryId(e.name, e.location),
       name: e.name || 'Desconocido',
       command: e.command || '',
-      location: (e.location || '').replace('\\\\', '\\'),
+      location: e.location || '',
       type: (e.type as 'registry') || 'folder',
       enabled: e.enabled !== false,
       impact: inferImpact(e.name || ''),

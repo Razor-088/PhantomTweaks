@@ -16,7 +16,7 @@ const Mini = React.memo(function Mini({ icon: Icon, label, value, color }: { ico
   );
 });
 
-const LIVE_PAGES = new Set(['dashboard', 'performance', 'gaming']);
+const LIVE_PAGES = new Set(['dashboard', 'performance', 'gaminghub']);
 
 export function Topbar() {
   const page = useAppStore((s) => s.page);

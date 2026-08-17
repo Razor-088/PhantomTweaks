@@ -4,22 +4,18 @@ import type { AppInfo, AppSettings, MonitorSnapshot, Overview } from '../lib/typ
 export type PageId =
   | 'dashboard'
   | 'optimizer'
-  | 'gaming'
+  | 'gaminghub'
   | 'performance'
-  | 'cleanup'
-  | 'startup'
-  | 'services'
-  | 'processes'
+  | 'systemmgr'
   | 'network'
+  | 'nvidia'
+  | 'inputdelay'
+  | 'cleanup'
   | 'privacy'
   | 'tools'
   | 'restore'
   | 'logs'
-  | 'settings'
-  | 'inputdelay'
-  | 'realtime'
-  | 'nvidia'
-  | 'gameopt';
+  | 'settings';
 
 export interface Toast {
   id: number;

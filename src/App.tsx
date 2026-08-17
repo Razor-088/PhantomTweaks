@@ -12,22 +12,18 @@ import type { AppSettings } from './lib/types';
 const Activation = React.lazy(() => import('./pages/Activation'));
 const Dashboard = React.lazy(() => import('./pages/Dashboard'));
 const Optimizer = React.lazy(() => import('./pages/Optimizer'));
-const Gaming = React.lazy(() => import('./pages/Gaming'));
+const GamingHub = React.lazy(() => import('./pages/GamingHub'));
 const Performance = React.lazy(() => import('./pages/Performance'));
-const Cleanup = React.lazy(() => import('./pages/Cleanup'));
-const Startup = React.lazy(() => import('./pages/Startup'));
-const Services = React.lazy(() => import('./pages/Services'));
-const Processes = React.lazy(() => import('./pages/Processes'));
+const SystemManager = React.lazy(() => import('./pages/SystemManager'));
 const Network = React.lazy(() => import('./pages/Network'));
+const NvidiaSettings = React.lazy(() => import('./pages/NvidiaSettings'));
+const InputDelay = React.lazy(() => import('./pages/InputDelay'));
+const Cleanup = React.lazy(() => import('./pages/Cleanup'));
 const Privacy = React.lazy(() => import('./pages/Privacy'));
 const Tools = React.lazy(() => import('./pages/Tools'));
 const Restore = React.lazy(() => import('./pages/Restore'));
 const Logs = React.lazy(() => import('./pages/Logs'));
 const Settings = React.lazy(() => import('./pages/Settings'));
-const InputDelay = React.lazy(() => import('./pages/InputDelay'));
-const RealTimeOptimizer = React.lazy(() => import('./pages/RealTimeOptimizer'));
-const NvidiaSettings = React.lazy(() => import('./pages/NvidiaSettings'));
-const GameOptimizer = React.lazy(() => import('./pages/GameOptimizer'));
 
 function resolveTheme(pref: AppSettings['theme']): 'dark' | 'light' {
   if (pref === 'system') {
@@ -140,7 +136,7 @@ export default function App() {
 
   useEffect(() => {
     const off = api.on('navigate:page', (p: string) => {
-      if (['dashboard', 'optimizer', 'gaming', 'performance', 'cleanup', 'startup', 'services', 'processes', 'network', 'privacy', 'tools', 'restore', 'logs', 'settings', 'inputdelay', 'realtime', 'nvidia', 'gameopt'].includes(p)) {
+      if (['dashboard', 'optimizer', 'gaminghub', 'performance', 'systemmgr', 'network', 'nvidia', 'inputdelay', 'cleanup', 'privacy', 'tools', 'restore', 'logs', 'settings'].includes(p)) {
         setPage(p as PageId);
       }
     });
@@ -180,22 +176,18 @@ export default function App() {
     switch (page) {
       case 'dashboard': return <Dashboard />;
       case 'optimizer': return <Optimizer />;
-      case 'gaming': return <Gaming />;
+      case 'gaminghub': return <GamingHub />;
       case 'performance': return <Performance />;
-      case 'cleanup': return <Cleanup />;
-      case 'startup': return <Startup />;
-      case 'services': return <Services />;
-      case 'processes': return <Processes />;
+      case 'systemmgr': return <SystemManager />;
       case 'network': return <Network />;
+      case 'nvidia': return <NvidiaSettings />;
+      case 'inputdelay': return <InputDelay />;
+      case 'cleanup': return <Cleanup />;
       case 'privacy': return <Privacy />;
       case 'tools': return <Tools />;
       case 'restore': return <Restore />;
       case 'logs': return <Logs />;
       case 'settings': return <Settings />;
-      case 'inputdelay': return <InputDelay />;
-      case 'realtime': return <RealTimeOptimizer />;
-      case 'nvidia': return <NvidiaSettings />;
-      case 'gameopt': return <GameOptimizer />;
       default: return <Dashboard />;
     }
   };

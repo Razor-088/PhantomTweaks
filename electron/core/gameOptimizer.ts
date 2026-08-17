@@ -4,6 +4,7 @@ import { runPS, runPSJson } from './ps';
 import { dataFile, ensureFile } from './paths';
 import { log } from './logging';
 import { optimizeMemory, emptyStandbyList } from './windowsTweaks';
+import { createScheduleWrite } from '../shared/scheduleWrite';
 
 export interface DetectedGame {
   id: string;
@@ -88,17 +89,7 @@ function loadOptimizations(): GameOptimization[] {
   return optCache!;
 }
 
-let writeTimer: NodeJS.Timeout | null = null;
-
-function scheduleWrite() {
-  if (writeTimer) return;
-  writeTimer = setTimeout(() => {
-    writeTimer = null;
-    try {
-      fs.writeFileSync(ensureFile(GAME_OPTIMIZATIONS_FILE), JSON.stringify(optCache, null, 2), 'utf-8');
-    } catch { /* ignore */ }
-  }, 300);
-}
+const scheduleWrite = createScheduleWrite(() => optCache, GAME_OPTIMIZATIONS_FILE);
 
 const STEAM_PATHS = [
   'C:\\Program Files (x86)\\Steam\\steamapps\\common',
@@ -126,51 +117,49 @@ const XBOX_PATHS = [
   'D:\\XboxGames',
 ];
 
-function findInstalledGames(): DetectedGame[] {
+async function findInstalledGames(): Promise<DetectedGame[]> {
   const found: DetectedGame[] = [];
   const seen = new Set<string>();
 
-  function scanDir(dirPath: string) {
+  async function scanDir(dirPath: string) {
+    let entries: fs.Dirent[];
     try {
-      if (!fs.existsSync(dirPath)) return;
-      const entries = fs.readdirSync(dirPath, { withFileTypes: true });
-      for (const entry of entries) {
-        if (!entry.isDirectory()) continue;
-        const fullPath = path.join(dirPath, entry.name);
-        try {
-          const files = fs.readdirSync(fullPath);
-          const exeFiles = files.filter(f => f.endsWith('.exe'));
-          for (const exe of exeFiles) {
-            const exeLower = exe.toLowerCase();
-            const known = KNOWN_GAMES.find(g => g.exe.toLowerCase() === exeLower);
-            if (known && !seen.has(exeLower)) {
-              seen.add(exeLower);
-              found.push({
-                id: `${known.platform}-${exeLower.replace(/\s+/g, '-')}`,
-                name: known.name,
-                exe: exe,
-                platform: known.platform,
-                installPath: fullPath,
-                running: false,
-                pid: null,
-              });
-            }
+      entries = await fs.promises.readdir(dirPath, { withFileTypes: true });
+    } catch { return; }
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      const fullPath = path.join(dirPath, entry.name);
+      try {
+        const files = await fs.promises.readdir(fullPath);
+        const exeFiles = files.filter(f => f.endsWith('.exe'));
+        for (const exe of exeFiles) {
+          const exeLower = exe.toLowerCase();
+          const known = KNOWN_GAMES.find(g => g.exe.toLowerCase() === exeLower);
+          if (known && !seen.has(exeLower)) {
+            seen.add(exeLower);
+            found.push({
+              id: `${known.platform}-${exeLower.replace(/\s+/g, '-')}`,
+              name: known.name,
+              exe: exe,
+              platform: known.platform,
+              installPath: fullPath,
+              running: false,
+              pid: null,
+            });
           }
-        } catch { /* skip inaccessible */ }
-      }
-    } catch { /* skip */ }
+        }
+      } catch { /* skip inaccessible */ }
+    }
   }
 
-  for (const p of STEAM_PATHS) scanDir(p);
-  for (const p of EPIC_PATHS) scanDir(p);
-  for (const p of GOG_PATHS) scanDir(p);
-  for (const p of XBOX_PATHS) scanDir(p);
+  const dirs = [...STEAM_PATHS, ...EPIC_PATHS, ...GOG_PATHS, ...XBOX_PATHS];
+  await Promise.all(dirs.map(p => scanDir(p)));
 
   return found;
 }
 
 export async function detectInstalledGames(): Promise<DetectedGame[]> {
-  const installed = findInstalledGames();
+  const installed = await findInstalledGames();
 
   const runningPs = await runPS(`
     $known = @('valorant','leagueclient','league of legends','fortniteclient','fortnitelauncher',

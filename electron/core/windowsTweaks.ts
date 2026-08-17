@@ -3,6 +3,8 @@ import { addChange, revertChange, ChangeRecord } from './restoreManager';
 import { runPS } from './ps';
 import { log } from './logging';
 import { getSettings } from './settings';
+import { getActiveSchemeGuid, setPowerPlan } from '../shared/powercfg';
+import { POWER_GUIDS } from '../shared/constants';
 
 export type TweakCategory = 'windows' | 'gaming' | 'privacy';
 export type TweakImpact = 'LOW' | 'MEDIUM' | 'HIGH';
@@ -28,8 +30,6 @@ export interface RegistryOp {
   type: string;
   data: string;
 }
-
-const HIGH_PERF_GUID = '8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c';
 
 // ---------------------------------------------------------------------------
 // helpers
@@ -162,12 +162,6 @@ function multiDwordTweak(opts: {
 // powercfg tweak
 // ---------------------------------------------------------------------------
 
-async function getActiveSchemeGuid(): Promise<string | null> {
-  const r = await runPS(`powercfg /getactivescheme`, 15000);
-  const m = r.stdout.match(/\(([0-9a-fA-F-]{36})\)/);
-  return m ? m[1].toLowerCase() : null;
-}
-
 async function getSchemeName(guid: string): Promise<string> {
   const r = await runPS(`powercfg /query ${guid}`, 15000);
   const m = r.stdout.match(/Scheme GUID: .*?\((.*?)\)/s);
@@ -188,12 +182,12 @@ const powerHighPerfTweak: Tweak = {
   requiresAdmin: true,
   check: async () => {
     const g = await getActiveSchemeGuid();
-    return g === HIGH_PERF_GUID;
+    return g === POWER_GUIDS.HIGH_PERF;
   },
   apply: async () => {
     const prev = await getActiveSchemeGuid();
     const prevName = prev ? await getSchemeName(prev) : 'plan actual';
-    const r = await runPS(`powercfg -setactive ${HIGH_PERF_GUID}`, 20000);
+    const r = await runPS(`powercfg -setactive ${POWER_GUIDS.HIGH_PERF}`, 20000);
     if (r.code !== 0) return { applied: false, message: r.stderr || 'No se pudo cambiar el plan de energía.' };
     addChange({
       tweakId: 'power_high_performance',
@@ -201,7 +195,7 @@ const powerHighPerfTweak: Tweak = {
       category: 'gaming',
       action: `Plan activo cambiado a Alto rendimiento (antes: ${prevName})`,
       reversible: true,
-      payload: { kind: 'powercfg', schemeGuid: prev || HIGH_PERF_GUID, schemeName: prevName },
+      payload: { kind: 'powercfg', schemeGuid: prev || POWER_GUIDS.HIGH_PERF, schemeName: prevName },
     });
     return { applied: true };
   },

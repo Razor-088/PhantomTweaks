@@ -106,6 +106,7 @@ function fmtBytesPerSecToMbps(bytesPerSec: number): number {
 // ---------------------------------------------------------------------------
 
 let lastCpuSample: { idle: number; total: number } | null = null;
+let lastCpuSampleTime = 0;
 
 function sampleCpu(): { idle: number; total: number } {
   let idle = 0;
@@ -434,11 +435,17 @@ let lastBatchTime = 0;
 const BATCH_MIN_INTERVAL = 2800;
 
 export async function getMonitorSnapshot(): Promise<MonitorSnapshot> {
-  // ── CPU usage via two Node os.cpus() samples ──
-  const a = sampleCpu();
-  await new Promise((res) => setTimeout(res, 400));
-  const b = sampleCpu();
-  const cpuPct = Math.round(computeCpuPct(a, b));
+  // ── CPU usage via two Node os.cpus() samples (non-blocking) ──
+  const now = Date.now();
+  const currentSample = sampleCpu();
+  let cpuPct = 0;
+  if (lastCpuSample && now - lastCpuSampleTime > 2500) {
+    cpuPct = Math.round(computeCpuPct(lastCpuSample, currentSample));
+    lastCpuSample = null;
+  } else if (!lastCpuSample) {
+    lastCpuSample = currentSample;
+    lastCpuSampleTime = now;
+  }
 
   // ── RAM and disk are pure Node.js calls (no child process) ──
   const ram = getRamInfo();
@@ -447,7 +454,6 @@ export async function getMonitorSnapshot(): Promise<MonitorSnapshot> {
   const diskPct = disk.total > 0 ? Math.round(((disk.total - disk.free) / disk.total) * 100) : 0;
 
   // ── Batched PowerShell query (1 process for everything else) ──
-  const now = Date.now();
   let batch = lastBatch;
   if (!batch || now - lastBatchTime > BATCH_MIN_INTERVAL) {
     try {

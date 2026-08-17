@@ -104,6 +104,11 @@ export function exportLogs(): string {
 }
 
 export function clearLogs() {
+  if (stream) {
+    stream.end();
+    stream = null;
+  }
+  today = null;
   const dir = path.join(getDataDir(), 'logs');
   if (fs.existsSync(dir)) {
     for (const f of fs.readdirSync(dir)) {
@@ -114,6 +119,4 @@ export function clearLogs() {
       }
     }
   }
-  today = null;
-  stream = null;
 }

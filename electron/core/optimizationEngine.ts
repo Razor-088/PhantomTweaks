@@ -6,8 +6,8 @@ import { runPS, runPSJson } from './ps';
 import { isAdmin } from './admin';
 import { listStartupEntries } from './startupManager';
 import { log } from './logging';
-
-const HIGH_PERF_GUID = '8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c';
+import { getActiveScheme, getActiveSchemeGuid } from '../shared/powercfg';
+import { POWER_GUIDS } from '../shared/constants';
 
 export interface OptMetric {
   cpuPct: number;
@@ -117,17 +117,6 @@ function fmtBytes(n: number): string {
   return `${n} B`;
 }
 
-async function getActiveScheme(): Promise<{ guid: string; name: string } | null> {
-  const r = await runPS(`powercfg /getactivescheme`, 15000);
-  const m = r.stdout.match(/\(([0-9a-fA-F-]{36})\)/);
-  if (!m) return null;
-  const guid = m[1].toLowerCase();
-  const r2 = await runPS(`powercfg /query ${guid}`, 15000);
-  const m2 = r2.stdout.match(/Scheme GUID: .*?\((.*?)\)/s);
-  const m3 = r2.stdout.match(/Nombre del plan de energía: (.*)/);
-  return { guid, name: m2 ? m2[1].trim() : m3 ? m3[1].trim() : guid };
-}
-
 function lastRunFile() {
   return ensureFile('optimization-last.json');
 }
@@ -171,7 +160,7 @@ async function classifyTweaks(opts: {
       status = 'skipped-risky';
       reasonKey = 'optimization.reason.skippedRisky';
       reason = 'Cambio con riesgo; solo se aplica si lo confirmas.';
-    } else if (t.id === 'power_high_performance' && opts.activeScheme === HIGH_PERF_GUID) {
+    } else if (t.id === 'power_high_performance' && opts.activeScheme === POWER_GUIDS.HIGH_PERF) {
       status = 'not-needed';
       reasonKey = 'optimization.reason.notNeeded.power';
       reason = 'El plan de energía activo ya es Alto rendimiento.';
@@ -219,7 +208,7 @@ async function buildDiagnosis(admin: boolean): Promise<DiagnosisFact[]> {
   try {
     const scheme = await getActiveScheme();
     if (scheme) {
-      const isHighPerf = scheme.guid === HIGH_PERF_GUID;
+      const isHighPerf = scheme.guid === POWER_GUIDS.HIGH_PERF;
       facts.push({ id: 'powerPlan', value: scheme.name, status: isHighPerf ? 'ok' : 'warn' });
     }
   } catch {

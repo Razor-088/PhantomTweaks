@@ -295,7 +295,7 @@ export async function getLicenseStatusAsync(): Promise<{ valid: boolean; license
       return { valid: true, license: local };
     } else {
       // Server says invalid — revoke locally
-      local.status = result.error === 'revoked' ? 'revoked' : 'revoked';
+      local.status = 'revoked';
       writeLocalLicense(local);
       return { valid: false, license: local, reason: result.error || 'revoked' };
     }

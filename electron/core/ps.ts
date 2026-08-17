@@ -28,7 +28,7 @@ export function runPS(script: string, timeoutMs = 30000): Promise<PSResult> {
     const proc = execFile(
       POWERSHELL,
       args,
-      { timeout: timeoutMs, maxBuffer: 64 * 1024 * 1024, windowsHide: true },
+      { timeout: timeoutMs, maxBuffer: 8 * 1024 * 1024, windowsHide: true },
       (err, stdout, stderr) => {
         if (killed) return;
         let code: number | null = 0;

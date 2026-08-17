@@ -17,10 +17,6 @@ export async function isAdmin(): Promise<boolean> {
   return result;
 }
 
-export function invalidateAdminCache() {
-  adminCheckCache = null;
-}
-
 export async function relaunchAsAdmin(): Promise<{ ok: boolean; error?: string }> {
   try {
     const exe = process.execPath;

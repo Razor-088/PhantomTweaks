@@ -3,13 +3,6 @@ import { log } from './logging';
 
 export type CommandClass = 'SAFE' | 'ADMIN' | 'ADVANCED';
 
-export interface ExecResult {
-  output: string;
-  error: string;
-  exitCode: string;
-  ok: boolean;
-}
-
 const BLOCKED_PATTERNS: RegExp[] = [
   /\bformat\s+[a-z]:/i,
   /\b(?:rd|rmdir|rm)\s+\/(?:s|q)\s+[\\\/]/i,

@@ -33,21 +33,17 @@ const NAV_GROUPS: Array<{
     items: [
       { id: 'dashboard', icon: Gauge },
       { id: 'optimizer', icon: Zap },
-      { id: 'gaming', icon: Gamepad2 },
+      { id: 'gaminghub', icon: Gamepad2 },
     ],
   },
   {
     key: 'nav.group.system',
     items: [
       { id: 'performance', icon: Activity },
-      { id: 'startup', icon: Rocket },
-      { id: 'processes', icon: Cpu },
-      { id: 'services', icon: Server },
+      { id: 'systemmgr', icon: Rocket },
       { id: 'network', icon: Wifi },
-      { id: 'inputdelay', icon: Timer },
-      { id: 'realtime', icon: Zap },
       { id: 'nvidia', icon: MonitorDot },
-      { id: 'gameopt', icon: Crosshair },
+      { id: 'inputdelay', icon: Timer },
     ],
   },
   {
