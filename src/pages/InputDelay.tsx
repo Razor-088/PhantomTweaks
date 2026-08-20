@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { Timer, CheckCircle2, Monitor, MousePointer, Zap, Power, RefreshCw, Globe, Rocket, ChevronDown, ChevronUp, Sparkles, ArrowRight } from 'lucide-react';
 import { api } from '../lib/api';
 import { useAppStore } from '../store/useAppStore';
@@ -22,6 +22,7 @@ const CATEGORY_ORDER = ['system', 'display', 'mouse', 'power', 'network'];
 
 function useAnimatedNumber(target: number, duration = 800): number {
   const [current, setCurrent] = useState(0);
+  const frameRef = useRef(0);
   useEffect(() => {
     const start = performance.now();
     const from = current;
@@ -29,9 +30,10 @@ function useAnimatedNumber(target: number, duration = 800): number {
       const t = Math.min((now - start) / duration, 1);
       const ease = 1 - Math.pow(1 - t, 3);
       setCurrent(Math.round(from + (target - from) * ease));
-      if (t < 1) requestAnimationFrame(step);
+      if (t < 1) frameRef.current = requestAnimationFrame(step);
     };
-    requestAnimationFrame(step);
+    frameRef.current = requestAnimationFrame(step);
+    return () => { if (frameRef.current) cancelAnimationFrame(frameRef.current); };
   }, [target, duration]);
   return current;
 }

@@ -155,9 +155,11 @@ export default function App() {
   }, [settings]);
 
   useEffect(() => {
-    const off = api.on('monitor:snapshot', (snap) => setSnapshot(snap));
+    const off = api.on('monitor:snapshot', (snap) => {
+      if (LIVE_PAGES.has(page)) setSnapshot(snap);
+    });
     return off;
-  }, [setSnapshot]);
+  }, [setSnapshot, page]);
 
   useEffect(() => {
     const off = api.on('navigate:page', (p: string) => {

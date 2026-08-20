@@ -432,7 +432,7 @@ if ($LASTEXITCODE -eq 0 -and $nv) {
 
 let lastBatch: BatchResult | null = null;
 let lastBatchTime = 0;
-const BATCH_MIN_INTERVAL = 2800;
+const BATCH_MIN_INTERVAL = 6000;
 
 export async function getMonitorSnapshot(): Promise<MonitorSnapshot> {
   // ── CPU usage via two Node os.cpus() samples (non-blocking) ──

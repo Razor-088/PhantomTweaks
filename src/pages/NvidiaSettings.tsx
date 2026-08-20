@@ -17,6 +17,7 @@ import type { NvidiaPreset, NvidiaSystemInfo } from '../lib/types';
 
 function AnimatedValue({ target, suffix = '' }: { target: number | null; suffix?: string }) {
   const [val, setVal] = useState(0);
+  const frameRef = useRef(0);
   useEffect(() => {
     if (target == null) return;
     const start = performance.now();
@@ -25,9 +26,10 @@ function AnimatedValue({ target, suffix = '' }: { target: number | null; suffix?
       const t = Math.min((now - start) / 600, 1);
       const ease = 1 - Math.pow(1 - t, 3);
       setVal(Math.round(from + (target - from) * ease));
-      if (t < 1) requestAnimationFrame(step);
+      if (t < 1) frameRef.current = requestAnimationFrame(step);
     };
-    requestAnimationFrame(step);
+    frameRef.current = requestAnimationFrame(step);
+    return () => { if (frameRef.current) cancelAnimationFrame(frameRef.current); };
   }, [target]);
   return <>{target != null ? val : '—'}{suffix}</>;
 }
@@ -115,7 +117,7 @@ export default function NvidiaSettings() {
 
   useEffect(() => {
     if (tab === 'overview' && info?.available) {
-      pollRef.current = setInterval(refreshGpu, 2000);
+      pollRef.current = setInterval(refreshGpu, 5000);
       return () => { if (pollRef.current) clearInterval(pollRef.current); };
     }
     if (pollRef.current) clearInterval(pollRef.current);

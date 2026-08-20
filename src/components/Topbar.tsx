@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { Cpu, GpuIcon as Gpu, MemoryStick, Network, ShieldAlert, TrendingUp, TrendingDown, Activity } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { cls } from '../lib/format';
@@ -6,7 +6,7 @@ import { useI18n } from '../lib/i18n';
 
 const LIVE_PAGES = new Set(['dashboard', 'performance', 'gaminghub']);
 
-function MetricPill({ icon: Icon, label, value, pct }: { icon: typeof Cpu; label: string; value: string; pct: number }) {
+const MetricPill = memo(function MetricPill({ icon: Icon, label, value, pct }: { icon: typeof Cpu; label: string; value: string; pct: number }) {
   const isHigh = pct >= 80;
   const isMed = pct >= 50;
   const accentClass = isHigh ? 'text-gdanger' : isMed ? 'text-gwarn' : 'text-gaccent';
@@ -32,20 +32,20 @@ function MetricPill({ icon: Icon, label, value, pct }: { icon: typeof Cpu; label
       </div>
     </div>
   );
-}
+});
 
 export function Topbar() {
   const page = useAppStore((s) => s.page);
+  const showLive = LIVE_PAGES.has(page);
   const snapshot = useAppStore((s) => s.snapshot);
   const online = useAppStore((s) => s.online);
   const appInfo = useAppStore((s) => s.appInfo);
   const { t } = useI18n();
 
-  const cpu = snapshot?.cpu.pct ?? 0;
-  const gpu = snapshot?.gpu.pct;
-  const ram = snapshot?.ram.pct ?? 0;
-  const net = snapshot?.net;
-  const showLive = LIVE_PAGES.has(page);
+  const cpu = showLive ? (snapshot?.cpu.pct ?? 0) : 0;
+  const gpu = showLive ? snapshot?.gpu.pct : null;
+  const ram = showLive ? (snapshot?.ram.pct ?? 0) : 0;
+  const net = showLive ? snapshot?.net : null;
 
   return (
     <header

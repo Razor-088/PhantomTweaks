@@ -46,8 +46,6 @@ import {
 
 export type Push = (channel: string, payload: any) => void;
 
-const intervalTimers: NodeJS.Timeout[] = [];
-
 function syncNativeTheme(theme: AppTheme) {
   try {
     nativeTheme.themeSource = theme;
@@ -92,7 +90,7 @@ function startSnapshotTimer(getWin: () => BrowserWindow | null) {
     }
   };
   tick();
-  snapshotTimer = setInterval(tick, 2500);
+  snapshotTimer = setInterval(tick, 5000);
 }
 
 async function setRunOnStartup(enabled: boolean) {
