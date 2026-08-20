@@ -37,22 +37,26 @@ const MetricPill = memo(function MetricPill({ icon: Icon, label, value, pct }: {
 export function Topbar() {
   const page = useAppStore((s) => s.page);
   const showLive = LIVE_PAGES.has(page);
-  const snapshot = useAppStore((s) => s.snapshot);
+  const cpuPct = useAppStore((s) => s.snapshot?.cpu.pct ?? 0);
+  const gpuPct = useAppStore((s) => s.snapshot?.gpu.pct);
+  const ramPct = useAppStore((s) => s.snapshot?.ram.pct ?? 0);
+  const netDown = useAppStore((s) => s.snapshot?.net?.downMbps ?? 0);
+  const netUp = useAppStore((s) => s.snapshot?.net?.upMbps ?? 0);
   const online = useAppStore((s) => s.online);
   const appInfo = useAppStore((s) => s.appInfo);
   const { t } = useI18n();
 
-  const cpu = showLive ? (snapshot?.cpu.pct ?? 0) : 0;
-  const gpu = showLive ? snapshot?.gpu.pct : null;
-  const ram = showLive ? (snapshot?.ram.pct ?? 0) : 0;
-  const net = showLive ? snapshot?.net : null;
+  const cpu = showLive ? cpuPct : 0;
+  const gpu = showLive ? gpuPct : null;
+  const ram = showLive ? ramPct : 0;
+  const net = showLive ? { downMbps: netDown, upMbps: netUp } : null;
 
   return (
     <header
       className="relative z-10 flex items-center justify-between gap-4 h-[68px] px-6 border-b border-gborder/40 shrink-0"
       style={{
         background: 'linear-gradient(90deg, color-mix(in srgb, var(--color-gbase2) 80%, transparent), color-mix(in srgb, var(--color-gbase2) 65%, transparent))',
-        backdropFilter: 'blur(16px) saturate(1.3)',
+        backdropFilter: 'blur(8px) saturate(1.3)',
       }}
     >
       {/* Subtle bottom glow line */}

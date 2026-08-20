@@ -1,4 +1,5 @@
 import * as fs from 'fs';
+import * as fsPromises from 'fs/promises';
 import * as path from 'path';
 import { getDataDir, ensureDataDir } from './paths';
 
@@ -67,18 +68,19 @@ export function log(level: LogLevel, category: string, message: string) {
   }
 }
 
-export function getLogs(limit = 1000): LogEntry[] {
+export async function getLogs(limit = 1000): Promise<LogEntry[]> {
   try {
     const dir = path.join(getDataDir(), 'logs');
-    if (!fs.existsSync(dir)) return [];
-    const files = fs
-      .readdirSync(dir)
+    try { await fsPromises.access(dir); } catch { return []; }
+    const allFiles = await fsPromises.readdir(dir);
+    const files = allFiles
       .filter((f) => f.endsWith('.log'))
       .sort()
       .slice(-3);
     const entries: LogEntry[] = [];
     for (const f of files) {
-      const lines = fs.readFileSync(path.join(dir, f), 'utf-8').split('\n').filter(Boolean);
+      const content = await fsPromises.readFile(path.join(dir, f), 'utf-8');
+      const lines = content.split('\n').filter(Boolean);
       for (const line of lines) {
         const m = line.match(/^\[(.*?)\] \[(.*?)\] \[(.*?)\] (.*)$/);
         if (m) entries.push({ timestamp: m[1], level: m[2] as LogLevel, category: m[3], message: m[4] });
@@ -90,33 +92,28 @@ export function getLogs(limit = 1000): LogEntry[] {
   }
 }
 
-export function exportLogs(): string {
+export async function exportLogs(): Promise<string> {
   const dir = path.join(getDataDir(), 'logs');
-  if (!fs.existsSync(dir)) throw new Error('No hay registros que exportar.');
+  try { await fsPromises.access(dir); } catch { throw new Error('No hay registros que exportar.'); }
   const out = path.join(getDataDir(), `phantontweaks-export-${Date.now()}.log`);
-  const files = fs.readdirSync(dir).filter((f) => f.endsWith('.log'));
-  const content = files
-    .sort()
-    .map((f) => fs.readFileSync(path.join(dir, f), 'utf-8'))
-    .join('');
-  fs.writeFileSync(out, content, 'utf-8');
+  const allFiles = await fsPromises.readdir(dir);
+  const files = allFiles.filter((f) => f.endsWith('.log')).sort();
+  const chunks = await Promise.all(files.map((f) => fsPromises.readFile(path.join(dir, f), 'utf-8')));
+  await fsPromises.writeFile(out, chunks.join(''), 'utf-8');
   return out;
 }
 
-export function clearLogs() {
+export async function clearLogs() {
   if (stream) {
     stream.end();
     stream = null;
   }
   today = null;
   const dir = path.join(getDataDir(), 'logs');
-  if (fs.existsSync(dir)) {
-    for (const f of fs.readdirSync(dir)) {
-      try {
-        fs.unlinkSync(path.join(dir, f));
-      } catch {
-        /* ignore */
-      }
+  try {
+    const files = await fsPromises.readdir(dir);
+    for (const f of files) {
+      try { await fsPromises.unlink(path.join(dir, f)); } catch { /* ignore */ }
     }
-  }
+  } catch { /* dir doesn't exist */ }
 }

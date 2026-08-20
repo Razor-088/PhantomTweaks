@@ -2,6 +2,7 @@ import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { execFile } from 'child_process';
 import { dataFile, ensureFile } from './paths';
 import { log } from './logging';
 
@@ -58,7 +59,20 @@ function writeLocalLicense(data: LicenseData | null) {
   }
 }
 
+function execFileAsync(cmd: string, args: string[]): Promise<string> {
+  return new Promise((resolve, reject) => {
+    execFile(cmd, args, { encoding: 'utf-8', timeout: 5000 }, (err, stdout) => {
+      if (err) reject(err);
+      else resolve(stdout);
+    });
+  });
+}
+
+let cachedMachineId: string | null = null;
+
 export async function getMachineId(): Promise<string> {
+  if (cachedMachineId) return cachedMachineId;
+
   const parts: string[] = [];
 
   try {
@@ -66,15 +80,13 @@ export async function getMachineId(): Promise<string> {
   } catch { /* ignore */ }
 
   try {
-    const { execSync } = await import('child_process');
-    const boardSerial = execSync('wmic baseboard get serialnumber', { encoding: 'utf-8', timeout: 5000 });
+    const boardSerial = await execFileAsync('wmic', ['baseboard', 'get', 'serialnumber']);
     const match = boardSerial.match(/\S+/g);
     if (match && match.length > 1) parts.push(match[1]);
   } catch { /* ignore */ }
 
   try {
-    const { execSync } = await import('child_process');
-    const cpuId = execSync('wmic cpu get ProcessorId', { encoding: 'utf-8', timeout: 5000 });
+    const cpuId = await execFileAsync('wmic', ['cpu', 'get', 'ProcessorId']);
     const match = cpuId.match(/\S+/g);
     if (match && match.length > 1) parts.push(match[1]);
   } catch { /* ignore */ }
@@ -84,7 +96,8 @@ export async function getMachineId(): Promise<string> {
   }
 
   const raw = parts.join('|');
-  return crypto.createHash('sha256').update(raw).digest('hex');
+  cachedMachineId = crypto.createHash('sha256').update(raw).digest('hex');
+  return cachedMachineId;
 }
 
 function getServerUrl(): string {

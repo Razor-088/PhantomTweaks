@@ -1,5 +1,5 @@
-import { useEffect, useState, useRef } from 'react';
-import { Cpu, GpuIcon as Gpu, MemoryStick, Zap, RefreshCw, CheckCircle2, Shield, TrendingUp, ArrowRight, Sparkles, Activity, Gauge } from 'lucide-react';
+import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
+import { Cpu, GpuIcon as Gpu, MemoryStick, Zap, RefreshCw, CheckCircle2, Shield, ArrowRight, Activity } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { Card } from '../components/ui/Card';
 import { PageHeader } from '../components/ui/PageHeader';
@@ -17,13 +17,16 @@ import type { HealthReport, OptimizationPreview } from '../lib/types';
 function useAnimatedNumber(target: number, duration = 800): number {
   const [current, setCurrent] = useState(0);
   const frameRef = useRef<number>(0);
+  const fromRef = useRef(0);
   useEffect(() => {
     const start = performance.now();
-    const from = current;
+    fromRef.current = current;
+    const from = fromRef.current;
     const step = (now: number) => {
       const t = Math.min((now - start) / duration, 1);
       const ease = 1 - Math.pow(1 - t, 3);
-      setCurrent(Math.round(from + (target - from) * ease));
+      const val = Math.round(from + (target - from) * ease);
+      setCurrent(val);
       if (t < 1) frameRef.current = requestAnimationFrame(step);
     };
     frameRef.current = requestAnimationFrame(step);
@@ -88,36 +91,38 @@ function LiveBar({ icon: Icon, label, value, barClass, valueText }: { icon: type
 export default function Dashboard() {
   const setPage = useAppStore((s) => s.setPage);
   const setBadges = useAppStore((s) => s.setBadges);
-  const snapshot = useAppStore((s) => s.snapshot);
+  const cpuPct = useAppStore((s) => s.snapshot?.cpu.pct ?? 0);
+  const gpuPct = useAppStore((s) => s.snapshot?.gpu.pct);
+  const ramPct = useAppStore((s) => s.snapshot?.ram.pct ?? 0);
   const { t } = useI18n();
   const [health, setHealth] = useState<HealthReport | null>(null);
   const [healthLoading, setHealthLoading] = useState(true);
   const [opt, setOpt] = useState<OptimizationPreview | null>(null);
   const [optLoading, setOptLoading] = useState(true);
 
-  const loadHealth = async () => {
+  const loadHealth = useCallback(async () => {
     setHealthLoading(true);
     const h = await api.system.health().catch(() => null);
     setHealth(h);
     setHealthLoading(false);
-  };
+  }, []);
 
-  const loadOpt = async () => {
+  const loadOpt = useCallback(async () => {
     setOptLoading(true);
     const p = await api.optimization.scan().catch(() => null);
     setOpt(p);
     setOptLoading(false);
     if (p && p.availableCount > 0) setBadges({ optimizer: p.availableCount });
-  };
+  }, [setBadges]);
 
   useEffect(() => {
     loadHealth();
     loadOpt();
-  }, []);
+  }, [loadHealth, loadOpt]);
 
-  const cpu = snapshot?.cpu.pct ?? 0;
-  const gpu = snapshot?.gpu.pct;
-  const ram = snapshot?.ram.pct ?? 0;
+  const cpu = cpuPct;
+  const gpu = gpuPct;
+  const ram = ramPct;
 
   return (
     <div className="max-w-[1200px] mx-auto animate-pageload">

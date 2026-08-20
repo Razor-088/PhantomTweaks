@@ -1,4 +1,4 @@
-import { ipcMain, app, dialog, shell, Notification, nativeTheme } from 'electron';
+import { ipcMain, app, shell, Notification, nativeTheme } from 'electron';
 import { BrowserWindow } from 'electron';
 import { getDataDir } from './core/paths';
 import { getSettings, setSetting, setSettings, resetSettings } from './core/settings';
@@ -43,6 +43,7 @@ import {
   applyGameOptimization, deactivateGameOptimization, getGameBoostStatus,
   loadCustomGames, saveCustomGame, deleteCustomGame
 } from './core/gameOptimizer';
+import { runPS } from './core/ps';
 
 export type Push = (channel: string, payload: any) => void;
 
@@ -97,7 +98,6 @@ async function setRunOnStartup(enabled: boolean) {
   const exe = process.execPath;
   const appArg = app.isPackaged ? '' : ` "${app.getAppPath().replace(/"/g, '\\"')}"`;
   const cmd = `"${exe}"${appArg}`;
-  const { runPS } = await import('./core/ps.js');
   const key = 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run';
   if (enabled) {
     await runPS(`Set-ItemProperty -Path '${key}' -Name 'PhantomTweaks' -Value '${cmd.replace(/'/g, "''")}' -Type String`, 10000);
@@ -107,7 +107,6 @@ async function setRunOnStartup(enabled: boolean) {
 }
 
 async function getRunOnStartup(): Promise<boolean> {
-  const { runPS } = await import('./core/ps.js');
   const r = await runPS(`(Get-ItemProperty 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run' -Name 'PhantomTweaks' -ErrorAction SilentlyContinue).PhantomTweaks`, 10000);
   return !!r.stdout.trim();
 }

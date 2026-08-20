@@ -1,4 +1,4 @@
-import React, { Suspense, useEffect, useState } from 'react';
+import React, { Suspense, useEffect, useState, useCallback, useMemo } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Topbar } from './components/Topbar';
 import { Toasts } from './components/ui/Toasts';
@@ -7,7 +7,7 @@ import { useAppStore } from './store/useAppStore';
 import { api } from './lib/api';
 import { useI18n } from './lib/i18n';
 import type { PageId } from './store/useAppStore';
-import type { AppSettings } from './lib/types';
+import type { AppSettings, MonitorSnapshot } from './lib/types';
 
 import { ProgressLoader } from './components/ui/Spinner';
 
@@ -24,6 +24,23 @@ const Tools = React.lazy(() => import('./pages/Tools'));
 const Restore = React.lazy(() => import('./pages/Restore'));
 const Logs = React.lazy(() => import('./pages/Logs'));
 const Settings = React.lazy(() => import('./pages/Settings'));
+
+const LIVE_PAGES = new Set(['dashboard', 'performance', 'gaminghub']);
+
+const PAGE_COMPONENTS: Record<string, React.LazyExoticComponent<React.ComponentType>> = {
+  dashboard: Dashboard,
+  optimizer: Optimizer,
+  gaminghub: GamingHub,
+  performance: Performance,
+  network: Network,
+  nvidia: NvidiaSettings,
+  inputdelay: InputDelay,
+  cleanup: Cleanup,
+  tools: Tools,
+  restore: Restore,
+  logs: Logs,
+  settings: Settings,
+};
 
 function resolveTheme(pref: AppSettings['theme']): 'dark' | 'light' {
   if (pref === 'system') {
@@ -71,7 +88,6 @@ export default function App() {
   const toast = useAppStore((s) => s.toast);
   const { t } = useI18n();
   const [checkingLicense, setCheckingLicense] = useState(false);
-  const LIVE_PAGES = new Set(['dashboard', 'performance', 'gaminghub']);
 
   useEffect(() => {
     (async () => {
@@ -92,32 +108,27 @@ export default function App() {
   }, [setLicenseActivated, setLicenseData]);
 
   useEffect(() => {
-    const needsLive = LIVE_PAGES.has(page);
-    if (needsLive) {
-      api.system.startPolling();
-    } else {
-      api.system.stopPolling();
-    }
-    return () => {
-      api.system.stopPolling();
-    };
-  }, [page]);
-
-  useEffect(() => {
-    const onVisibility = () => {
+    const handleVisibilityChange = () => {
+      const el = document.documentElement;
       if (document.hidden || !LIVE_PAGES.has(page)) {
         api.system.stopPolling();
+        el.classList.add('pause-aurora');
       } else {
         api.system.startPolling();
+        el.classList.remove('pause-aurora');
       }
     };
-    document.addEventListener('visibilitychange', onVisibility);
-    window.addEventListener('focus', onVisibility);
-    window.addEventListener('blur', onVisibility);
+    const onBlur = () => document.documentElement.classList.add('pause-aurora');
+    const onFocus = () => document.documentElement.classList.remove('pause-aurora');
+    handleVisibilityChange();
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('blur', onBlur);
+    window.addEventListener('focus', onFocus);
     return () => {
-      document.removeEventListener('visibilitychange', onVisibility);
-      window.removeEventListener('focus', onVisibility);
-      window.removeEventListener('blur', onVisibility);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('blur', onBlur);
+      window.removeEventListener('focus', onFocus);
+      api.system.stopPolling();
     };
   }, [page]);
 
@@ -154,42 +165,21 @@ export default function App() {
     }
   }, [settings]);
 
+  const onSnapshot = useCallback((snap: MonitorSnapshot) => {
+    if (LIVE_PAGES.has(page)) setSnapshot(snap);
+  }, [page, setSnapshot]);
+
   useEffect(() => {
-    const off = api.on('monitor:snapshot', (snap) => {
-      if (LIVE_PAGES.has(page)) setSnapshot(snap);
-    });
+    const off = api.on('monitor:snapshot', onSnapshot);
     return off;
-  }, [setSnapshot, page]);
+  }, [onSnapshot]);
 
   useEffect(() => {
     const off = api.on('navigate:page', (p: string) => {
-      if (['dashboard', 'optimizer', 'gaminghub', 'performance', 'network', 'nvidia', 'inputdelay', 'cleanup', 'tools', 'restore', 'logs', 'settings'].includes(p)) {
-        setPage(p as PageId);
-      }
+      if (PAGE_COMPONENTS[p]) setPage(p as PageId);
     });
     return off;
   }, [setPage]);
-
-  useEffect(() => {
-    const onVisibility = () => {
-      const el = document.documentElement;
-      if (document.hidden) {
-        el.classList.add('pause-aurora');
-      } else {
-        el.classList.remove('pause-aurora');
-      }
-    };
-    const onBlur = () => document.documentElement.classList.add('pause-aurora');
-    const onFocus = () => document.documentElement.classList.remove('pause-aurora');
-    document.addEventListener('visibilitychange', onVisibility);
-    window.addEventListener('blur', onBlur);
-    window.addEventListener('focus', onFocus);
-    return () => {
-      document.removeEventListener('visibilitychange', onVisibility);
-      window.removeEventListener('blur', onBlur);
-      window.removeEventListener('focus', onFocus);
-    };
-  }, []);
 
   if (!licenseActivated) {
     return (
@@ -202,23 +192,10 @@ export default function App() {
     );
   }
 
-  const renderPage = () => {
-    switch (page) {
-      case 'dashboard': return <Dashboard />;
-      case 'optimizer': return <Optimizer />;
-      case 'gaminghub': return <GamingHub />;
-      case 'performance': return <Performance />;
-      case 'network': return <Network />;
-      case 'nvidia': return <NvidiaSettings />;
-      case 'inputdelay': return <InputDelay />;
-      case 'cleanup': return <Cleanup />;
-      case 'tools': return <Tools />;
-      case 'restore': return <Restore />;
-      case 'logs': return <Logs />;
-      case 'settings': return <Settings />;
-      default: return <Dashboard />;
-    }
-  };
+  const renderPage = useMemo(() => {
+    const Component = PAGE_COMPONENTS[page] || Dashboard;
+    return <Component />;
+  }, [page]);
 
   return (
     <div
@@ -238,7 +215,7 @@ export default function App() {
         >
           <ErrorBoundary>
             <Suspense fallback={<ProgressLoader />}>
-              {renderPage()}
+              {renderPage}
             </Suspense>
           </ErrorBoundary>
         </main>

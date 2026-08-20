@@ -56,7 +56,9 @@ function Bar({ icon, label, value, display, color }: { icon: React.ReactNode; la
 
 export function RealTimeOptimizer({ compact = false }: { compact?: boolean }) {
   const { t } = useI18n();
-  const snapshot = useAppStore((s) => s.snapshot);
+  const cpuPct = useAppStore((s) => s.snapshot?.cpu.pct ?? 0);
+  const ramPct = useAppStore((s) => s.snapshot?.ram.pct ?? 0);
+  const gpuPct = useAppStore((s) => s.snapshot?.gpu.pct ?? 0);
   const toast = useAppStore((s) => s.toast);
   const [busy, setBusy] = useState<ActionId | null>(null);
 
@@ -84,9 +86,9 @@ export function RealTimeOptimizer({ compact = false }: { compact?: boolean }) {
     }
   };
 
-  const cpu = snapshot?.cpu.pct ?? 0;
-  const ram = snapshot?.ram.pct ?? 0;
-  const gpu = snapshot?.gpu.pct;
+  const cpu = cpuPct;
+  const ram = ramPct;
+  const gpu = gpuPct;
 
   return (
     <Card
@@ -101,10 +103,10 @@ export function RealTimeOptimizer({ compact = false }: { compact?: boolean }) {
     >
       {!compact && <div className="scanline" />}
 
-      {snapshot ? (
+      {(cpuPct > 0 || ramPct > 0) ? (
         <div className={`flex gap-4 ${compact ? 'flex-wrap' : 'flex-col sm:flex-row'}`}>
           <Bar icon={<Cpu size={12} className="text-gaccent" />} label="CPU" value={cpu} display={`${cpu}%`} color={cpu >= 85 ? 'bg-gdanger' : cpu >= 60 ? 'bg-gwarn' : 'bg-gaccent'} />
-          <Bar icon={<MemoryStick size={12} className="text-ginfo" />} label="RAM" value={ram} display={`${ram}% · ${snapshot.ram.usedGb}/${snapshot.ram.totalGb} GB`} color={ram >= 85 ? 'bg-gdanger' : ram >= 60 ? 'bg-gwarn' : 'bg-ginfo'} />
+          <Bar icon={<MemoryStick size={12} className="text-ginfo" />} label="RAM" value={ram} display={`${ram}%`} color={ram >= 85 ? 'bg-gdanger' : ram >= 60 ? 'bg-gwarn' : 'bg-ginfo'} />
           {gpu != null && (
             <Bar icon={<Activity size={12} className="text-gaccent2" />} label="GPU" value={gpu} display={`${gpu}%`} color={gpu >= 85 ? 'bg-gdanger' : gpu >= 60 ? 'bg-gwarn' : 'bg-gaccent2'} />
           )}

@@ -18,10 +18,12 @@ import type { NvidiaPreset, NvidiaSystemInfo } from '../lib/types';
 function AnimatedValue({ target, suffix = '' }: { target: number | null; suffix?: string }) {
   const [val, setVal] = useState(0);
   const frameRef = useRef(0);
+  const fromRef = useRef(0);
   useEffect(() => {
     if (target == null) return;
     const start = performance.now();
-    const from = val;
+    fromRef.current = val;
+    const from = fromRef.current;
     const step = (now: number) => {
       const t = Math.min((now - start) / 600, 1);
       const ease = 1 - Math.pow(1 - t, 3);

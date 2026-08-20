@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { Cpu, GpuIcon as Gpu, MemoryStick, HardDrive, Network as NetworkIcon, Thermometer, Clock, Gauge, RefreshCw } from 'lucide-react';
 import { api } from '../lib/api';
 import { useAppStore } from '../store/useAppStore';
@@ -24,6 +24,7 @@ function Metric({ label, value, unit }: { label: string; value: string; unit?: s
     </div>
   );
 }
+const MemoMetric = React.memo(Metric);
 
 function HardwareCard({
   icon: Icon, title, subtitle, value, valueColor = 'text-gaccent', metrics, children,
@@ -49,16 +50,21 @@ function HardwareCard({
       }
     >
       <div className="space-y-1 mb-3">
-        {metrics.map((m) => <Metric key={m.label} {...m} />)}
+        {metrics.map((m) => <MemoMetric key={m.label} {...m} />)}
       </div>
       {children}
     </Card>
   );
 }
+const MemoHardwareCard = React.memo(HardwareCard);
 
 export default function Performance() {
   const { t } = useI18n();
-  const snapshot = useAppStore((s) => s.snapshot);
+  const cpuPct = useAppStore((s) => s.snapshot?.cpu.pct ?? 0);
+  const gpuPct = useAppStore((s) => s.snapshot?.gpu.pct ?? 0);
+  const ramPct = useAppStore((s) => s.snapshot?.ram.pct ?? 0);
+  const netDown = useAppStore((s) => s.snapshot?.net.downMbps ?? 0);
+  const snapshotTimestamp = useAppStore((s) => s.snapshot?.timestamp);
   const [report, setReport] = useState<PerfReport | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -84,12 +90,12 @@ export default function Performance() {
   }, []);
 
   useEffect(() => {
-    if (!snapshot) return;
-    cpuH.push(snapshot.cpu.pct);
-    gpuH.push(snapshot.gpu.pct ?? 0);
-    ramH.push(snapshot.ram.pct);
-    netDownH.push(snapshot.net.downMbps);
-  }, [snapshot]);
+    if (!snapshotTimestamp) return;
+    cpuH.push(cpuPct);
+    gpuH.push(gpuPct);
+    ramH.push(ramPct);
+    netDownH.push(netDown);
+  }, [snapshotTimestamp]);
 
   useEffect(() => {
     return () => { cpuH.reset(); gpuH.reset(); ramH.reset(); netDownH.reset(); };
@@ -99,7 +105,7 @@ export default function Performance() {
   if (!report) return <PageSpinner text={t('performance.failed')} />;
 
   const { cpu, gpu, ram, disk, net } = report;
-  const netMax = Math.max(10, Math.ceil(Math.max(...netDownH.data, 0)));
+  const netMax = useMemo(() => Math.max(10, Math.ceil(Math.max(...netDownH.data, 0))), [netDownH.data]);
   const cpuColor = cpu.usage >= 80 ? 'text-gdanger' : cpu.usage >= 60 ? 'text-gwarn' : 'text-gaccent';
   const ramColor = ram.pct >= 80 ? 'text-gdanger' : ram.pct >= 60 ? 'text-gwarn' : 'text-gaccent';
 
@@ -117,7 +123,7 @@ export default function Performance() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 stagger">
         {/* CPU */}
-        <HardwareCard
+        <MemoHardwareCard
           icon={Cpu} title="CPU" subtitle={cpu.model}
           value={`${Math.round(cpu.usage)}%`} valueColor={cpuColor}
           metrics={[
@@ -130,10 +136,10 @@ export default function Performance() {
         >
           <ProgressBar value={cpu.usage} height={6} barClassName={cpu.usage >= 80 ? 'bg-gdanger' : cpu.usage >= 60 ? 'bg-gwarn' : 'bg-gaccent'} />
           {cpuH.hasData && <div className="mt-3"><LiveChart data={cpuH.data} height={65} /></div>}
-        </HardwareCard>
+        </MemoHardwareCard>
 
         {/* GPU */}
-        <HardwareCard
+        <MemoHardwareCard
           icon={Gpu} title="GPU" subtitle={gpu.model}
           value={gpu.usage != null ? `${Math.round(gpu.usage)}%` : '—'}
           metrics={[
@@ -145,10 +151,10 @@ export default function Performance() {
         >
           <ProgressBar value={gpu.usage ?? 0} height={6} />
           {gpuH.hasData && <div className="mt-3"><LiveChart data={gpuH.data} height={65} /></div>}
-        </HardwareCard>
+        </MemoHardwareCard>
 
         {/* RAM */}
-        <HardwareCard
+        <MemoHardwareCard
           icon={MemoryStick} title={t('performance.ramTitle')} subtitle={t('performance.ramSubtitle')}
           value={`${Math.round(ram.pct)}%`} valueColor={ramColor}
           metrics={[
@@ -160,10 +166,10 @@ export default function Performance() {
         >
           <ProgressBar value={ram.pct} height={6} barClassName={ram.pct >= 80 ? 'bg-gdanger' : ram.pct >= 60 ? 'bg-gwarn' : 'bg-gaccent'} />
           {ramH.hasData && <div className="mt-3"><LiveChart data={ramH.data} height={65} /></div>}
-        </HardwareCard>
+        </MemoHardwareCard>
 
         {/* Disk */}
-        <HardwareCard
+        <MemoHardwareCard
           icon={HardDrive} title={t('performance.diskTitle')}
           subtitle={`${disk.model ?? t('performance.mainDisk')} · ${disk.mediaType ?? '—'}`}
           value={`${Math.round(disk.pct)}%`}
@@ -187,10 +193,10 @@ export default function Performance() {
               ))}
             </div>
           )}
-        </HardwareCard>
+        </MemoHardwareCard>
 
         {/* Network */}
-        <HardwareCard
+        <MemoHardwareCard
           icon={NetworkIcon} title={t('performance.netTitle')}
           subtitle={`${net.adapter ?? '—'} · ${net.ip ?? t('performance.noIp')}`}
           value={`${net.downMbps} ↓ ${net.upMbps} ↑`}
@@ -201,7 +207,7 @@ export default function Performance() {
           ]}
         >
           {netDownH.hasData && <div className="mt-3"><LiveChart data={netDownH.data} color="#00d66b" height={65} min={0} max={netMax} /></div>}
-        </HardwareCard>
+        </MemoHardwareCard>
       </div>
     </div>
   );

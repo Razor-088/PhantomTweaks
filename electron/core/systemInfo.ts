@@ -1,5 +1,6 @@
 import * as os from 'os';
 import * as fs from 'fs';
+import * as fsPromises from 'fs/promises';
 import * as path from 'path';
 import { execFile } from 'child_process';
 import { runPS, runPSJson } from './ps';
@@ -87,9 +88,9 @@ function rootOfDrive(drive: string): string {
   return drive.endsWith('\\') ? drive : drive + '\\';
 }
 
-function statfsTotalFree(root: string): { total: number; free: number } {
+async function statfsTotalFree(root: string): Promise<{ total: number; free: number }> {
   try {
-    const s = fs.statfsSync(root);
+    const s = await fsPromises.statfs(root);
     return { total: s.bsize * s.blocks, free: s.bsize * s.bavail };
   } catch {
     return { total: 0, free: 0 };
@@ -473,7 +474,7 @@ export async function getMonitorSnapshot(): Promise<MonitorSnapshot> {
   // ── RAM and disk are pure Node.js calls (no child process) ──
   const ram = getRamInfo();
   const root = path.parse(os.homedir()).root;
-  const disk = statfsTotalFree(root);
+  const disk = await statfsTotalFree(root);
   const diskPct = disk.total > 0 ? Math.round(((disk.total - disk.free) / disk.total) * 100) : 0;
 
   // ── Batched PowerShell query (CPU temp + network only, no GPU) ──

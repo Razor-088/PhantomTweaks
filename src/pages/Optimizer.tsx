@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { Zap, ShieldCheck, Shield, Gamepad2, Settings as SettingsIcon, RefreshCw, Wrench } from 'lucide-react';
 import { api } from '../lib/api';
 import { useAppStore } from '../store/useAppStore';
@@ -12,13 +12,16 @@ import { PageSpinner } from '../components/ui/Spinner';
 import { useI18n } from '../lib/i18n';
 import type { TweakView } from '../lib/types';
 
+const MemoTweakCard = React.memo(TweakCard);
+
 export default function Optimizer() {
   const [tweaks, setTweaks] = useState<TweakView[]>([]);
   const [loading, setLoading] = useState(true);
   const [category, setCategory] = useState('all');
   const [busy, setBusy] = useState<string | null>(null);
   const toast = useAppStore((s) => s.toast);
-  const settings = useAppStore((s) => s.settings);
+  const infoLevel = useAppStore((s) => s.settings?.infoLevel);
+  const confirmChanges = useAppStore((s) => s.settings?.confirmChanges ?? true);
   const { t } = useI18n();
 
   const CATEGORIES = useMemo(
@@ -45,21 +48,21 @@ export default function Optimizer() {
 
   const filtered = useMemo(() => {
     let list = tweaks;
-    if (settings?.infoLevel === 'basic') {
+    if (infoLevel === 'basic') {
       list = list.filter((tw) => tw.risk !== 'ADVANCED');
     }
     if (category !== 'all') {
       list = list.filter((tw) => tw.category === category || (category === 'system' && tw.scope === 'system'));
     }
     return list;
-  }, [tweaks, category, settings?.infoLevel]);
+  }, [tweaks, category, infoLevel]);
 
-  const refreshStates = async () => {
+  const refreshStates = useCallback(async () => {
     const list = await api.tweaks.list().catch(() => []);
     setTweaks(list);
-  };
+  }, []);
 
-  const applyTweak = async (id: string) => {
+  const applyTweak = useCallback(async (id: string) => {
     setBusy(id);
     try {
       const r = await api.tweaks.apply(id);
@@ -76,9 +79,9 @@ export default function Optimizer() {
       setBusy(null);
       await refreshStates();
     }
-  };
+  }, [tweaks, toast, t, refreshStates]);
 
-  const revertTweak = async (id: string) => {
+  const revertTweak = useCallback(async (id: string) => {
     setBusy(id);
     try {
       const r = await api.tweaks.revert(id);
@@ -95,9 +98,9 @@ export default function Optimizer() {
       setBusy(null);
       await refreshStates();
     }
-  };
+  }, [tweaks, toast, t, refreshStates]);
 
-  const appliedCount = tweaks.filter((tw) => tw.applied).length;
+  const appliedCount = useMemo(() => tweaks.filter((tw) => tw.applied).length, [tweaks]);
 
   return (
     <div className="max-w-[1200px] mx-auto">
@@ -144,13 +147,13 @@ export default function Optimizer() {
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 stagger">
           {filtered.map((tw) => (
-            <TweakCard
+            <MemoTweakCard
               key={tw.id}
               tweak={tw}
               onApply={applyTweak}
               onRevert={revertTweak}
               busy={busy}
-              confirmChanges={settings?.confirmChanges ?? true}
+              confirmChanges={confirmChanges}
             />
           ))}
         </div>

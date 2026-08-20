@@ -1,9 +1,9 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import {
   Gamepad2, Power, PowerOff, CheckCircle2, Zap, ShieldCheck,
   Crosshair, RefreshCw, Play, Plus, Trash2, Search, X,
-  Gauge, Star, Swords, Target, Flame, Crown, Skull, Shield, Heart,
-  FolderOpen, Monitor, Download, HardDrive, Filter,
+  Gauge, Swords, Target, Flame, Crown, Skull, Shield, Heart,
+  FolderOpen, Monitor, Filter,
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { useAppStore } from '../store/useAppStore';
@@ -328,21 +328,21 @@ export default function GamingHub() {
     loadProfiles();
   };
 
-  const runningGames = games.filter(g => g.running);
-  const installedGames = games.filter(g => !g.running);
-  const platforms = [...new Set(games.map(g => g.platform))];
+  const runningGames = useMemo(() => games.filter(g => g.running), [games]);
+  const installedGames = useMemo(() => games.filter(g => !g.running), [games]);
+  const platforms = useMemo(() => [...new Set(games.map(g => g.platform))], [games]);
 
-  const filteredInstalled = installedGames.filter(g => {
+  const filteredInstalled = useMemo(() => installedGames.filter(g => {
     if (search && !g.name.toLowerCase().includes(search.toLowerCase())) return false;
     if (platformFilter !== 'all' && g.platform !== platformFilter) return false;
     return true;
-  });
+  }), [installedGames, search, platformFilter]);
 
-  const filteredRunning = runningGames.filter(g => {
+  const filteredRunning = useMemo(() => runningGames.filter(g => {
     if (search && !g.name.toLowerCase().includes(search.toLowerCase())) return false;
     if (platformFilter !== 'all' && g.platform !== platformFilter) return false;
     return true;
-  });
+  }), [runningGames, search, platformFilter]);
 
   const TABS: { id: Tab; label: string; icon: typeof Gamepad2 }[] = [
     { id: 'gaming', label: t('gaming.modeInactive'), icon: Zap },
