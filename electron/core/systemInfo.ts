@@ -382,7 +382,7 @@ interface BatchResult {
  */
 let gpuCache: { pct: number|null; temp: number|null; usedMb: number|null; totalMb: number|null } | null = null;
 let gpuCacheTime = 0;
-const GPU_CACHE_MS = 5000;
+const GPU_CACHE_MS = 15000;
 
 function queryGpu(): Promise<{ pct: number|null; temp: number|null; usedMb: number|null; totalMb: number|null }> {
   return new Promise((resolve) => {
@@ -451,17 +451,21 @@ try {
 
 let lastBatch: BatchResult | null = null;
 let lastBatchTime = 0;
-const BATCH_MIN_INTERVAL = 6000;
+const BATCH_MIN_INTERVAL = 15000;
 
 export async function getMonitorSnapshot(): Promise<MonitorSnapshot> {
   // ── CPU usage via two Node os.cpus() samples (non-blocking) ──
   const now = Date.now();
   const currentSample = sampleCpu();
   let cpuPct = 0;
-  if (lastCpuSample && now - lastCpuSampleTime > 2500) {
-    cpuPct = Math.round(computeCpuPct(lastCpuSample, currentSample));
-    lastCpuSample = null;
-  } else if (!lastCpuSample) {
+  if (lastCpuSample) {
+    const elapsed = now - lastCpuSampleTime;
+    if (elapsed >= 4000) {
+      cpuPct = Math.round(computeCpuPct(lastCpuSample, currentSample));
+      lastCpuSample = currentSample;
+      lastCpuSampleTime = now;
+    }
+  } else {
     lastCpuSample = currentSample;
     lastCpuSampleTime = now;
   }

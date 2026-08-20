@@ -115,13 +115,18 @@ export default function NvidiaSettings() {
 
   useEffect(() => { scan(); }, []);
 
+  const refreshGpuSilent = useCallback(async () => {
+    if (tab !== 'overview' || !info?.available || document.hidden) return;
+    try { const gpus = await api.nvidia.gpus(); setInfo((p) => p ? { ...p, gpus } : p); } catch { /* */ }
+  }, [tab, info?.available]);
+
   useEffect(() => {
     if (tab === 'overview' && info?.available) {
-      pollRef.current = setInterval(refreshGpu, 5000);
+      pollRef.current = setInterval(refreshGpuSilent, 15000);
       return () => { if (pollRef.current) clearInterval(pollRef.current); };
     }
     if (pollRef.current) clearInterval(pollRef.current);
-  }, [tab, info?.available, refreshGpu]);
+  }, [tab, info?.available, refreshGpuSilent]);
 
   const applyPreset = async (id: string) => {
     setApplying(id);

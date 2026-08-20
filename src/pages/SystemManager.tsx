@@ -488,7 +488,7 @@ function ProcessesTab({ toast, t, appInfo }: { toast: any; t: (key: string, para
 
   useEffect(() => {
     load();
-    const iv = setInterval(load, 5000);
+    const iv = setInterval(() => { if (!document.hidden) load(); }, 10000);
     return () => clearInterval(iv);
   }, []);
 

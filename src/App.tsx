@@ -179,13 +179,15 @@ export default function App() {
         el.classList.remove('pause-aurora');
       }
     };
+    const onBlur = () => document.documentElement.classList.add('pause-aurora');
+    const onFocus = () => document.documentElement.classList.remove('pause-aurora');
     document.addEventListener('visibilitychange', onVisibility);
-    window.addEventListener('blur', () => document.documentElement.classList.add('pause-aurora'));
-    window.addEventListener('focus', () => document.documentElement.classList.remove('pause-aurora'));
+    window.addEventListener('blur', onBlur);
+    window.addEventListener('focus', onFocus);
     return () => {
       document.removeEventListener('visibilitychange', onVisibility);
-      window.removeEventListener('blur', () => document.documentElement.classList.add('pause-aurora'));
-      window.removeEventListener('focus', () => document.documentElement.classList.remove('pause-aurora'));
+      window.removeEventListener('blur', onBlur);
+      window.removeEventListener('focus', onFocus);
     };
   }, []);
 

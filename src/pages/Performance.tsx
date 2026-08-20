@@ -79,7 +79,7 @@ export default function Performance() {
     refreshTimer.current = setInterval(() => {
       if (document.hidden) return;
       api.perf.report().then(setReport).catch(() => undefined);
-    }, 5000);
+    }, 15000);
     return () => { if (refreshTimer.current) clearInterval(refreshTimer.current); };
   }, []);
 

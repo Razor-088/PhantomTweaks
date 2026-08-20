@@ -13,10 +13,21 @@ export function useHistory(size: number) {
     [size]
   );
 
+  const pushBatch = useCallback(
+    (values: number[]) => {
+      let next = ref.current;
+      for (const v of values) next = [...next, v];
+      next = next.slice(-size);
+      ref.current = next;
+      setData(next);
+    },
+    [size]
+  );
+
   const reset = useCallback(() => {
     ref.current = [];
     setData([]);
   }, []);
 
-  return { data, push, reset, hasData: data.length > 1 };
+  return { data, push, pushBatch, reset, hasData: data.length > 1 };
 }
