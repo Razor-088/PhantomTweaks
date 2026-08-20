@@ -6,12 +6,10 @@ export type PageId =
   | 'optimizer'
   | 'gaminghub'
   | 'performance'
-  | 'systemmgr'
   | 'network'
   | 'nvidia'
   | 'inputdelay'
   | 'cleanup'
-  | 'privacy'
   | 'tools'
   | 'restore'
   | 'logs'
@@ -35,6 +33,7 @@ interface AppState {
   toasts: Toast[];
   licenseActivated: boolean;
   licenseData: any | null;
+  badges: Record<string, number | null>;
   setPage: (p: PageId) => void;
   toggleSidebar: () => void;
   setSettings: (s: AppSettings) => void;
@@ -44,6 +43,7 @@ interface AppState {
   setOnline: (v: boolean) => void;
   setLicenseActivated: (v: boolean) => void;
   setLicenseData: (d: any | null) => void;
+  setBadges: (b: Record<string, number | null>) => void;
   toast: (type: Toast['type'], title: string, message?: string) => void;
   dismissToast: (id: number) => void;
 }
@@ -61,6 +61,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   toasts: [],
   licenseActivated: false,
   licenseData: null,
+  badges: {},
   setPage: (p) => set({ page: p }),
   toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
   setSettings: (settings) => set({ settings }),
@@ -70,6 +71,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   setOnline: (online) => set({ online }),
   setLicenseActivated: (licenseActivated) => set({ licenseActivated }),
   setLicenseData: (licenseData) => set({ licenseData }),
+  setBadges: (badges) => set({ badges }),
   toast: (type, title, message) => {
     const id = ++toastId;
     set((s) => ({ toasts: [...s.toasts, { id, type, title, message }] }));

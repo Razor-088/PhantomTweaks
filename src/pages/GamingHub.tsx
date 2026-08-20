@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import {
-  Gamepad2, Power, PowerOff, CheckCircle2, AlertTriangle, Rocket, Zap, ShieldCheck,
-  Crosshair, RefreshCw, Power as PowerIcon, Cpu, Wifi, Play, Square, Plus, Trash2,
-  Gauge,
+  Gamepad2, Power, PowerOff, CheckCircle2, Zap, ShieldCheck,
+  Crosshair, RefreshCw, Play, Plus, Trash2, Search, X,
+  Gauge, Star, Swords, Target, Flame, Crown, Skull, Shield, Heart,
+  FolderOpen, Monitor, Download, HardDrive, Filter,
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { useAppStore } from '../store/useAppStore';
@@ -13,7 +14,81 @@ import { Toggle } from '../components/ui/Toggle';
 import { StatusBadge } from '../components/ui/StatusBadge';
 import { ConfirmDialog, Modal } from '../components/ui/Modal';
 import { useI18n } from '../lib/i18n';
-import type { GamingModeResult, BoostStatus, DetectedGame, GameOptimization, GameBoostStatus, GameProfile } from '../lib/types';
+import { loadGameLogo, preloadGameLogos } from '../lib/gameLogos';
+import type { GamingModeResult, DetectedGame, GameOptimization, GameBoostStatus, GameProfile } from '../lib/types';
+
+const FALLBACK_ICONS: Record<string, { color: string; bg: string; gradient: string; icon: typeof Flame }> = {
+  overwatch: { color: 'text-orange-400', bg: 'bg-orange-500/15', gradient: 'from-orange-500/20 to-transparent', icon: Target },
+  'overwatch 2': { color: 'text-orange-400', bg: 'bg-orange-500/15', gradient: 'from-orange-500/20 to-transparent', icon: Target },
+  valorant: { color: 'text-red-400', bg: 'bg-red-500/15', gradient: 'from-red-500/20 to-transparent', icon: Crosshair },
+  fortnite: { color: 'text-blue-400', bg: 'bg-blue-500/15', gradient: 'from-blue-500/20 to-transparent', icon: Zap },
+  'league of legends': { color: 'text-yellow-400', bg: 'bg-yellow-500/15', gradient: 'from-yellow-500/20 to-transparent', icon: Crown },
+  cs2: { color: 'text-amber-400', bg: 'bg-amber-500/15', gradient: 'from-amber-500/20 to-transparent', icon: Shield },
+  minecraft: { color: 'text-green-400', bg: 'bg-green-500/15', gradient: 'from-green-500/20 to-transparent', icon: Heart },
+  gta: { color: 'text-emerald-400', bg: 'bg-emerald-500/15', gradient: 'from-emerald-500/20 to-transparent', icon: Star },
+  apex: { color: 'text-rose-400', bg: 'bg-rose-500/15', gradient: 'from-rose-500/20 to-transparent', icon: Swords },
+  'the first descendant': { color: 'text-cyan-400', bg: 'bg-cyan-500/15', gradient: 'from-cyan-500/20 to-transparent', icon: Skull },
+  'marvel rivals': { color: 'text-red-400', bg: 'bg-red-500/15', gradient: 'from-red-500/20 to-transparent', icon: Star },
+  'elden ring': { color: 'text-yellow-400', bg: 'bg-yellow-500/15', gradient: 'from-yellow-500/20 to-transparent', icon: Crown },
+  'cyberpunk': { color: 'text-yellow-300', bg: 'bg-yellow-300/15', gradient: 'from-yellow-300/20 to-transparent', icon: Zap },
+};
+
+const HASH_COLORS = [
+  { color: 'text-gaccent', bg: 'bg-gaccent/15', gradient: 'from-gaccent/15 to-transparent' },
+  { color: 'text-blue-400', bg: 'bg-blue-500/15', gradient: 'from-blue-500/15 to-transparent' },
+  { color: 'text-purple-400', bg: 'bg-purple-500/15', gradient: 'from-purple-500/15 to-transparent' },
+  { color: 'text-cyan-400', bg: 'bg-cyan-500/15', gradient: 'from-cyan-500/15 to-transparent' },
+  { color: 'text-pink-400', bg: 'bg-pink-500/15', gradient: 'from-pink-500/15 to-transparent' },
+  { color: 'text-orange-400', bg: 'bg-orange-500/15', gradient: 'from-orange-500/15 to-transparent' },
+];
+
+function getFallback(name: string) {
+  const lower = name.toLowerCase();
+  for (const [key, val] of Object.entries(FALLBACK_ICONS)) {
+    if (lower.includes(key)) return val;
+  }
+  const hash = lower.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+  const c = HASH_COLORS[hash % HASH_COLORS.length];
+  return { ...c, icon: Gamepad2 };
+}
+
+function GameLogo({ name, size = 40, fullWidth, className }: { name: string; size?: number; fullWidth?: boolean; className?: string }) {
+  const [src, setSrc] = useState<string | null>(null);
+  const loaded = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (loaded.current.has(name)) return;
+    loaded.current.add(name);
+    loadGameLogo(name).then((s) => { if (s) setSrc(s); }).catch(() => {});
+  }, [name]);
+
+  if (src) {
+    return (
+      <img
+        src={src}
+        alt={name}
+        onError={() => setSrc(null)}
+        className={`object-cover shrink-0 ${fullWidth ? 'w-full' : 'rounded-xl border border-gborder/50'} ${className || ''}`}
+        style={fullWidth ? undefined : { width: size, height: size }}
+      />
+    );
+  }
+
+  const fb = getFallback(name);
+  const Icon = fb.icon;
+  if (fullWidth) {
+    return (
+      <div className={`flex items-center justify-center shrink-0 ${fb.bg} ${className || ''}`}>
+        <Icon size={36} className={fb.color} />
+      </div>
+    );
+  }
+  return (
+    <div className={`rounded-xl border border-gborder/30 flex items-center justify-center shrink-0 ${fb.bg}`} style={{ width: size, height: size }}>
+      <Icon size={size * 0.45} className={fb.color} />
+    </div>
+  );
+}
 
 const PLATFORM_ICONS: Record<string, string> = {
   steam: '🎮',
@@ -21,6 +96,7 @@ const PLATFORM_ICONS: Record<string, string> = {
   riot: '⚔️',
   xbox: '🟢',
   gog: '🟡',
+  'battle.net': '🔵',
   other: '🎲',
 };
 
@@ -30,6 +106,7 @@ const PLATFORM_LABELS: Record<string, string> = {
   riot: 'Riot Games',
   xbox: 'Xbox / Game Pass',
   gog: 'GOG',
+  'battle.net': 'Battle.net',
   other: 'Otro',
 };
 
@@ -40,6 +117,7 @@ type Tab = 'gaming' | 'optimizer' | 'profiles';
 export default function GamingHub() {
   const { t } = useI18n();
   const toast = useAppStore((s) => s.toast);
+  const setBadges = useAppStore((s) => s.setBadges);
   const [tab, setTab] = useState<Tab>('gaming');
 
   const [active, setActive] = useState(false);
@@ -48,13 +126,13 @@ export default function GamingHub() {
   const [memoryClean, setMemoryClean] = useState(true);
   const [confirmOn, setConfirmOn] = useState(false);
   const [confirmOff, setConfirmOff] = useState(false);
-  const [boost, setBoost] = useState<BoostStatus | null>(null);
-  const [boostBusy, setBoostBusy] = useState(false);
 
   const [games, setGames] = useState<DetectedGame[]>([]);
   const [optimizations, setOptimizations] = useState<GameOptimization[]>([]);
-  const [boostStatus, setBoostStatus] = useState<GameBoostStatus | null>(null);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [platformFilter, setPlatformFilter] = useState<string>('all');
+
   const [showNewOpt, setShowNewOpt] = useState(false);
   const [selectedGame, setSelectedGame] = useState<DetectedGame | null>(null);
   const [newOpt, setNewOpt] = useState({
@@ -72,6 +150,9 @@ export default function GamingHub() {
   const [rtGames, setRtGames] = useState<string[]>([]);
   const [rtLoading, setRtLoading] = useState(true);
   const [applying, setApplying] = useState<string | null>(null);
+  const [applyingOpt, setApplyingOpt] = useState<string | null>(null);
+  const [lastApplied, setLastApplied] = useState<string | null>(null);
+  const [quickOptGame, setQuickOptGame] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [formName, setFormName] = useState('');
   const [formGame, setFormGame] = useState('');
@@ -81,7 +162,6 @@ export default function GamingHub() {
 
   useEffect(() => {
     api.gaming.status().then((s) => setActive(s.active)).catch(() => undefined);
-    api.boost.status().then(setBoost).catch(() => undefined);
     loadGames();
     loadProfiles();
   }, []);
@@ -89,10 +169,7 @@ export default function GamingHub() {
   const activate = async () => {
     setBusy(true);
     const r: GamingModeResult = await api.gaming.activate({ applyPowerPlan, memoryClean }).catch(() => ({
-      active: false,
-      applied: [],
-      failed: ['error'],
-      messages: [t('gaming.commError')],
+      active: false, applied: [], failed: ['error'], messages: [t('gaming.commError')],
     }));
     setBusy(false);
     if (r.active) {
@@ -114,38 +191,18 @@ export default function GamingHub() {
     toast('info', t('gaming.deactivated'), t('gaming.deactivatedDesc', { n: r.applied.length }));
   };
 
-  const toggleBoost = async () => {
-    setBoostBusy(true);
-    const r = boost?.gaming.active
-      ? await api.boost.gamingStop().catch(() => null)
-      : await api.boost.gamingStart().catch(() => null);
-    setBoostBusy(false);
-    if (!r) {
-      toast('error', t('common.error'), t('gaming.commError'));
-      return;
-    }
-    setBoost(r);
-    if (r.gaming.active) {
-      toast('success', t('gaming.boostActivated'), r.gaming.details.join(' · '));
-    } else {
-      toast('info', t('gaming.boostDeactivated'), r.gaming.details.join(' · ') || t('gaming.boostRestored'));
-    }
-    if (r.gaming.warnings.length) {
-      toast('info', t('gaming.warnings'), r.gaming.warnings.join(' · '));
-    }
-  };
-
   const loadGames = async () => {
     setLoading(true);
     try {
-      const [installed, opts, status] = await Promise.all([
+      const [installed, opts] = await Promise.all([
         api.games.installed(),
         api.games.optimizations(),
-        api.games.boostStatus(),
       ]);
       setGames(installed);
       setOptimizations(opts);
-      setBoostStatus(status);
+      preloadGameLogos(installed.map((g) => g.name));
+      const running = installed.filter((g) => g.running).length;
+      setBadges({ gaminghub: running > 0 ? running : null });
     } catch { /* ignore */ }
     setLoading(false);
   };
@@ -155,8 +212,8 @@ export default function GamingHub() {
     const opt: GameOptimization = {
       id: `gameopt-${Date.now().toString(36)}`,
       gameId: selectedGame.id,
-      name: newOpt.name || selectedGame.name,
       ...newOpt,
+      name: newOpt.name || selectedGame.name,
       cpuCoreAffinity: null,
       autoApply: false,
       createdAt: new Date().toISOString(),
@@ -166,16 +223,7 @@ export default function GamingHub() {
       toast('success', t('gameOpt.saved'), t('gameOpt.savedDesc'));
       setShowNewOpt(false);
       setSelectedGame(null);
-      setNewOpt({
-        name: '',
-        applyPowerPlan: true,
-        memoryClean: true,
-        priority: 'high',
-        gameDvrOff: true,
-        fullscreenOptOff: true,
-        gameModeOn: true,
-        networkOptimize: false,
-      });
+      setNewOpt({ name: '', applyPowerPlan: true, memoryClean: true, priority: 'high', gameDvrOff: true, fullscreenOptOff: true, gameModeOn: true, networkOptimize: false });
       loadGames();
     } else {
       toast('error', t('common.error'), t('gameOpt.saveError'));
@@ -183,9 +231,14 @@ export default function GamingHub() {
   };
 
   const applyOpt = async (id: string) => {
+    setApplyingOpt(id);
     const r = await api.games.applyOptimization(id).catch(() => ({ ok: false, applied: [], errors: ['Error'] }));
+    setApplyingOpt(null);
     if (r.ok) {
-      toast('success', t('gameOpt.applied'), t('gameOpt.appliedDesc'));
+      setLastApplied(id);
+      toast('success', t('gameOpt.applied'), r.applied.length ? r.applied.join(' · ') : t('gameOpt.appliedDesc'));
+      loadGames();
+      setTimeout(() => setLastApplied(null), 3000);
     } else {
       toast('error', t('common.error'), r.errors[0]);
     }
@@ -193,16 +246,48 @@ export default function GamingHub() {
 
   const deactivateOpt = async (id: string) => {
     const r = await api.games.deactivateOptimization(id).catch(() => ({ ok: false, applied: [], errors: ['Error'] }));
-    if (r.ok) {
-      toast('info', t('gameOpt.deactivated'), t('gameOpt.deactivatedDesc'));
-      loadGames();
-    }
+    if (r.ok) { toast('info', t('gameOpt.deactivated'), t('gameOpt.deactivatedDesc')); loadGames(); }
   };
 
   const deleteOpt = async (id: string) => {
     await api.games.deleteOptimization(id).catch(() => {});
     toast('info', t('gameOpt.deleted'), '');
     loadGames();
+  };
+
+  const quickOptimize = async (game: DetectedGame) => {
+    setQuickOptGame(game.id);
+    const opt: GameOptimization = {
+      id: `gameopt-${Date.now().toString(36)}`,
+      gameId: game.id,
+      name: game.name,
+      applyPowerPlan: true,
+      memoryClean: true,
+      priority: 'high',
+      gameDvrOff: true,
+      fullscreenOptOff: true,
+      gameModeOn: true,
+      networkOptimize: true,
+      cpuCoreAffinity: null,
+      autoApply: false,
+      createdAt: new Date().toISOString(),
+    };
+    const saved = await api.games.saveOptimization(opt).catch(() => null);
+    if (saved) {
+      const r = await api.games.applyOptimization(saved.id).catch(() => ({ ok: false, applied: [], errors: ['Error'] }));
+      setQuickOptGame(null);
+      if (r.ok) {
+        setLastApplied(saved.id);
+        toast('success', t('gameOpt.quickOptimized'), r.applied.length ? r.applied.join(' · ') : game.name);
+        loadGames();
+        setTimeout(() => setLastApplied(null), 3000);
+      } else {
+        toast('error', t('common.error'), r.errors[0]);
+      }
+    } else {
+      setQuickOptGame(null);
+      toast('error', t('common.error'), t('gameOpt.saveError'));
+    }
   };
 
   const loadProfiles = async () => {
@@ -219,21 +304,13 @@ export default function GamingHub() {
   const saveProfile = async () => {
     if (!formName.trim()) { toast('warning', t('realtime.nameRequired')); return; }
     const profile: GameProfile = {
-      id: genId(),
-      name: formName.trim(),
-      game: formGame.trim(),
-      powerPlan: formPower,
-      priority: formPriority,
-      memoryClean: formMemClean,
-      tweaks: [],
-      autoApply: false,
-      createdAt: new Date().toISOString(),
+      id: genId(), name: formName.trim(), game: formGame.trim(),
+      powerPlan: formPower, priority: formPriority, memoryClean: formMemClean,
+      tweaks: [], autoApply: false, createdAt: new Date().toISOString(),
     };
     await api.profiles.save(profile);
     toast('success', t('realtime.profileSaved'));
-    setShowForm(false);
-    setFormName('');
-    setFormGame('');
+    setShowForm(false); setFormName(''); setFormGame('');
     loadProfiles();
   };
 
@@ -241,11 +318,8 @@ export default function GamingHub() {
     setApplying(id);
     const r = await api.profiles.apply(id).catch(() => ({ ok: false, applied: [], errors: ['Error'] }));
     setApplying(null);
-    if (r.ok) {
-      toast('success', t('realtime.profileApplied'), r.applied.join(' · '));
-    } else {
-      toast('error', t('common.error'), r.errors.join(' · '));
-    }
+    if (r.ok) { toast('success', t('realtime.profileApplied'), r.applied.join(' · ')); loadProfiles(); }
+    else { toast('error', t('common.error'), r.errors.join(' · ')); }
   };
 
   const deleteProfile = async (id: string) => {
@@ -256,17 +330,31 @@ export default function GamingHub() {
 
   const runningGames = games.filter(g => g.running);
   const installedGames = games.filter(g => !g.running);
+  const platforms = [...new Set(games.map(g => g.platform))];
+
+  const filteredInstalled = installedGames.filter(g => {
+    if (search && !g.name.toLowerCase().includes(search.toLowerCase())) return false;
+    if (platformFilter !== 'all' && g.platform !== platformFilter) return false;
+    return true;
+  });
+
+  const filteredRunning = runningGames.filter(g => {
+    if (search && !g.name.toLowerCase().includes(search.toLowerCase())) return false;
+    if (platformFilter !== 'all' && g.platform !== platformFilter) return false;
+    return true;
+  });
 
   const TABS: { id: Tab; label: string; icon: typeof Gamepad2 }[] = [
-    { id: 'gaming', label: 'Modo Gaming', icon: Gamepad2 },
-    { id: 'optimizer', label: 'Game Optimizer', icon: Crosshair },
-    { id: 'profiles', label: 'Perfiles', icon: Gauge },
+    { id: 'gaming', label: t('gaming.modeInactive'), icon: Zap },
+    { id: 'optimizer', label: t('gameOpt.title'), icon: Crosshair },
+    { id: 'profiles', label: t('realtime.title'), icon: Gauge },
   ];
 
   return (
     <div className="max-w-[1200px] mx-auto">
       <PageHeader title={t('gaming.title')} subtitle={t('gaming.subtitle')} />
 
+      {/* Tabs */}
       <div className="flex items-center gap-2 flex-wrap mb-5">
         {TABS.map((c) => (
           <button
@@ -284,249 +372,298 @@ export default function GamingHub() {
         ))}
       </div>
 
+      {/* ==================== GAMING TAB ==================== */}
       {tab === 'gaming' && (
         <>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <Card className="lg:col-span-1 flex flex-col" noPadding>
-              <div className="p-5 flex-1 flex flex-col items-center justify-center text-center">
-                <div
-                  className={`w-40 h-40 rounded-full flex items-center justify-center mb-5 transition-all duration-300 ${
-                    active ? 'border-2 border-gaccent shadow-[0_0_40px_rgba(0,255,136,0.4)]' : 'border border-gborder2'
+          {/* Hero Optimizer Card */}
+          <Card className="mb-5 relative overflow-hidden" noPadding>
+            <div className="absolute inset-0 bg-gradient-to-br from-gaccent/5 via-transparent to-transparent pointer-events-none" />
+            <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-gaccent/8 to-transparent rounded-bl-full pointer-events-none" />
+
+            <div className="relative p-6 flex flex-col md:flex-row items-center gap-6">
+              {/* Big Button */}
+              <div className="flex flex-col items-center gap-3">
+                <button
+                  onClick={() => active ? setConfirmOff(true) : setConfirmOn(true)}
+                  disabled={busy}
+                  className={`w-28 h-28 rounded-full flex items-center justify-center transition-all duration-500 border-2 cursor-pointer group ${
+                    active
+                      ? 'border-gaccent shadow-[0_0_50px_rgba(0,255,136,0.35)] bg-gaccent/5 hover:shadow-[0_0_60px_rgba(0,255,136,0.5)]'
+                      : 'border-gborder2 hover:border-gaccent/50 hover:shadow-[0_0_30px_rgba(0,255,136,0.15)] bg-gpanel2'
                   }`}
                 >
-                  <Gamepad2
-                    size={64}
-                    className={active ? 'text-gaccent animate-glow rounded-full' : 'text-gdim'}
-                    strokeWidth={1.4}
-                  />
-                </div>
-
-                <div className="font-mono text-[16px] font-bold tracking-widest uppercase">
                   {active ? (
-                    <span className="text-gaccent text-glow">● {t('gaming.modeActive')}</span>
+                    <PowerOff size={36} className="text-gaccent group-hover:scale-110 transition-transform" />
                   ) : (
-                    <span className="text-gdim">{t('gaming.modeInactive')}</span>
+                    <Power size={36} className="text-gdim group-hover:text-gaccent group-hover:scale-110 transition-all" />
                   )}
+                </button>
+                <div className="text-center">
+                  <div className="font-mono text-[13px] font-bold tracking-widest uppercase">
+                    {active ? (
+                      <span className="text-gaccent text-glow flex items-center gap-1.5">
+                        <span className="live-dot w-2 h-2 rounded-full bg-gaccent inline-block" />
+                        {t('gaming.modeActive')}
+                      </span>
+                    ) : (
+                      <span className="text-gmuted">{t('gaming.modeInactive')}</span>
+                    )}
+                  </div>
                 </div>
-                <p className="text-[12px] text-gmuted mt-2 max-w-[260px] leading-relaxed">
+              </div>
+
+              {/* Options + Facts */}
+              <div className="flex-1 min-w-0">
+                <p className="text-[12.5px] text-gmuted leading-relaxed mb-4">
                   {active ? t('gaming.activeDesc') : t('gaming.inactiveDesc')}
                 </p>
 
-                <div className="mt-6 w-full max-w-[260px] space-y-3">
-                  <div className="flex items-center justify-between text-[12.5px] text-gmuted">
-                    <span>{t('gaming.powerPlan')}</span>
+                <div className="flex flex-wrap gap-x-5 gap-y-2 mb-4">
+                  <div className="flex items-center justify-between text-[12px] text-gmuted">
+                    <span className="mr-2">{t('gaming.powerPlan')}</span>
                     <Toggle checked={applyPowerPlan} onChange={setApplyPowerPlan} disabled={active} />
                   </div>
-                  <div className="flex items-center justify-between text-[12.5px] text-gmuted">
-                    <span>{t('gaming.memoryClean')}</span>
+                  <div className="flex items-center justify-between text-[12px] text-gmuted">
+                    <span className="mr-2">{t('gaming.memoryClean')}</span>
                     <Toggle checked={memoryClean} onChange={setMemoryClean} disabled={active} />
                   </div>
                 </div>
 
-                <div className="mt-7 flex gap-3">
-                  {!active ? (
-                    <Button size="lg" icon={<Power size={16} />} loading={busy} onClick={() => setConfirmOn(true)}>
-                      {t('gaming.activate')}
-                    </Button>
-                  ) : (
-                    <Button size="lg" variant="outline-danger" icon={<PowerOff size={16} />} loading={busy} onClick={() => setConfirmOff(true)}>
-                      {t('gaming.deactivate')}
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </Card>
-
-            <Card className="lg:col-span-2" title={t('gaming.whatItDoes')}>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                {['gaming.fact1', 'gaming.fact2', 'gaming.fact3', 'gaming.fact4'].map((k) => (
-                  <div key={k} className="flex items-start gap-2 py-1.5">
-                    <CheckCircle2 size={14} className="text-gaccent shrink-0 mt-0.5" />
-                    <span className="text-[12.5px] text-gmuted leading-relaxed">{t(k)}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-4 flex items-start gap-2 border-t border-gborder/30 pt-3">
-                <ShieldCheck size={14} className="text-gaccent shrink-0 mt-0.5" />
-                <span className="text-[12px] text-gdim leading-relaxed">{t('gaming.safetyNote')}</span>
-              </div>
-            </Card>
-          </div>
-
-          <Card
-            title={
-              <span className="flex items-center gap-2">
-                <Rocket size={15} className="text-gaccent" />
-                {t('gaming.fpsBoost')}
-              </span>
-            }
-            subtitle={t('gaming.fpsBoostSub')}
-            className={`relative overflow-hidden mt-4 ${boost?.gaming.active ? 'border-gaccent/40' : ''}`}
-          >
-            {boost?.gaming.active && <div className="scanline" />}
-            <div className="flex flex-col lg:flex-row lg:items-center gap-5">
-              <div className="flex-1 min-w-0">
-                {boost?.gaming.active ? (
-                  <div className="space-y-2.5">
-                    <div className="flex items-center gap-2.5 flex-wrap">
-                      <StatusBadge tone="active" dot>{t('gaming.boostActive')}</StatusBadge>
-                      {boost.gaming.game && (
-                        <span className="text-[12.5px] text-gtext font-medium flex items-center gap-1.5">
-                          <Gamepad2 size={14} className="text-gaccent" />
-                          {t('gaming.boostGame')}: <span className="text-gaccent">{boost.gaming.game}</span>
-                        </span>
-                      )}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
+                  {['gaming.fact1', 'gaming.fact2', 'gaming.fact3', 'gaming.fact4'].map((k) => (
+                    <div key={k} className="flex items-center gap-2 py-1">
+                      <CheckCircle2 size={12} className="text-gaccent shrink-0" />
+                      <span className="text-[11.5px] text-gdim leading-relaxed">{t(k)}</span>
                     </div>
-                    <ul className="space-y-1">
-                      {boost.gaming.details.map((d, i) => (
-                        <li key={i} className="flex items-start gap-2 text-[12.5px] text-gmuted">
-                          <CheckCircle2 size={14} className="text-gaccent shrink-0 mt-0.5" />
-                          {d}
-                        </li>
-                      ))}
-                      {boost.gaming.warnings.map((w, i) => (
-                        <li key={`w${i}`} className="flex items-start gap-2 text-[12.5px] text-gwarn">
-                          <AlertTriangle size={14} className="shrink-0 mt-0.5" />
-                          {w}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : (
-                  <div className="text-[13px] text-gmuted leading-relaxed">{t('gaming.boostInactive')}</div>
-                )}
-              </div>
-              <div className="shrink-0 flex items-center gap-3">
-                {boost?.gaming.active && (
-                  <div className="flex items-center gap-1.5 text-[11px] text-gdim">
-                    <span className="live-dot inline-block w-2 h-2 rounded-full bg-gaccent" />
-                    {t('gaming.live')}
-                  </div>
-                )}
-                <Button
-                  size="lg"
-                  variant={boost?.gaming.active ? 'outline-danger' : undefined}
-                  icon={boost?.gaming.active ? <PowerOff size={16} /> : <Zap size={16} />}
-                  loading={boostBusy}
-                  onClick={toggleBoost}
-                >
-                  {boost?.gaming.active ? t('gaming.stopBoost') : t('gaming.activateBoost')}
-                </Button>
+                  ))}
+                </div>
+                <div className="mt-2 flex items-center gap-2">
+                  <ShieldCheck size={12} className="text-gaccent shrink-0" />
+                  <span className="text-[10.5px] text-gdim leading-relaxed">{t('gaming.safetyNote')}</span>
+                </div>
               </div>
             </div>
           </Card>
-        </>
-      )}
 
-      {tab === 'optimizer' && (
-        <>
-          <div className="flex items-center gap-2 flex-wrap mb-6">
-            <Button variant="primary" size="sm" icon={<Plus size={14} />} onClick={() => setShowNewOpt(true)}>
-              {t('gameOpt.newOpt')}
-            </Button>
-            <Button variant="secondary" size="sm" icon={<RefreshCw size={14} />} onClick={loadGames}>
-              {t('common.refresh')}
-            </Button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <Card className="text-center">
-              <div className="text-[28px] font-bold text-gaccent">{games.length}</div>
-              <div className="text-[11px] text-gdim uppercase tracking-wider mt-1">{t('gameOpt.installed')}</div>
+          {/* Stats Row */}
+          <div className="grid grid-cols-3 gap-3 mb-5">
+            <Card className="text-center py-3">
+              <div className="text-[24px] font-bold text-gaccent">{games.length}</div>
+              <div className="text-[10px] text-gdim uppercase tracking-wider">{t('gameOpt.installed')}</div>
             </Card>
-            <Card className="text-center">
-              <div className="text-[28px] font-bold text-green-400">{runningGames.length}</div>
-              <div className="text-[11px] text-gdim uppercase tracking-wider mt-1">{t('gameOpt.running')}</div>
+            <Card className="text-center py-3">
+              <div className="text-[24px] font-bold text-green-400">{runningGames.length}</div>
+              <div className="text-[10px] text-gdim uppercase tracking-wider">{t('gameOpt.running')}</div>
             </Card>
-            <Card className="text-center">
-              <div className="text-[28px] font-bold text-blue-400">{optimizations.length}</div>
-              <div className="text-[11px] text-gdim uppercase tracking-wider mt-1">{t('gameOpt.optimizations')}</div>
+            <Card className="text-center py-3">
+              <div className="text-[24px] font-bold text-blue-400">{optimizations.length}</div>
+              <div className="text-[10px] text-gdim uppercase tracking-wider">{t('gameOpt.optimizations')}</div>
             </Card>
           </div>
 
-          {runningGames.length > 0 && (
-            <div className="mb-6">
-              <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-gdim mb-3">{t('gameOpt.runningNow')}</h3>
+          {/* Search + Filter */}
+          <div className="flex items-center gap-2 mb-4">
+            <div className="relative flex-1">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gdim" />
+              <input
+                type="text"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder={t('gaming.search')}
+                className="w-full pl-9 pr-8 py-2 rounded-lg bg-gpanel border border-gborder text-[12.5px] text-gtext placeholder:text-gdim/50 focus:outline-none focus:border-gaccent/50 transition-colors"
+              />
+              {search && (
+                <button onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gdim hover:text-gtext">
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+            <div className="flex items-center gap-1 bg-gpanel border border-gborder rounded-lg px-1.5 py-1">
+              <button
+                onClick={() => setPlatformFilter('all')}
+                className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${platformFilter === 'all' ? 'bg-gaccent/15 text-gaccent' : 'text-gdim hover:text-gtext'}`}
+              >
+                <Filter size={12} />
+              </button>
+              {platforms.map(p => (
+                <button
+                  key={p}
+                  onClick={() => setPlatformFilter(p === platformFilter ? 'all' : p)}
+                  className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${platformFilter === p ? 'bg-gaccent/15 text-gaccent' : 'text-gdim hover:text-gtext'}`}
+                  title={PLATFORM_LABELS[p]}
+                >
+                  {PLATFORM_ICONS[p] || '🎲'}
+                </button>
+              ))}
+            </div>
+            <Button variant="secondary" size="sm" icon={<RefreshCw size={14} />} onClick={loadGames} loading={loading} />
+          </div>
+
+          {/* Running Games */}
+          {filteredRunning.length > 0 && (
+            <div className="mb-5">
+              <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-gdim mb-3 flex items-center gap-2">
+                <span className="live-dot inline-block w-2 h-2 rounded-full bg-green-400" />
+                {t('gameOpt.runningNow')}
+              </h3>
               <div className="space-y-2">
-                {runningGames.map(game => (
-                  <Card key={game.id} className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-green-500/10 shrink-0">
-                      <Play size={18} className="text-green-400" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[13px] font-semibold text-gtext">{game.name}</span>
-                        <StatusBadge tone="ok"><CheckCircle2 size={10} /> {t('gameOpt.active')}</StatusBadge>
+                {filteredRunning.map(game => {
+                  const opt = optimizations.find(o => o.gameId === game.id);
+                  return (
+                    <Card key={game.id} className="relative overflow-hidden border-green-500/20 bg-green-500/[0.03]">
+                      <div className="absolute inset-0 bg-gradient-to-r from-green-500/5 to-transparent pointer-events-none" />
+                      <div className="relative flex items-center gap-4">
+                        <GameLogo name={game.name} size={52} />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[14px] font-semibold text-gtext">{game.name}</span>
+                            <StatusBadge tone="ok"><CheckCircle2 size={10} /> {t('gameOpt.active')}</StatusBadge>
+                          </div>
+                          <p className="text-[11px] text-gmuted mt-0.5">
+                            {PLATFORM_ICONS[game.platform]} {PLATFORM_LABELS[game.platform]} · PID {game.pid}
+                          </p>
+                        </div>
+                        {opt && (
+                          <Button
+                            variant={lastApplied === opt.id ? 'success' : 'primary'}
+                            size="sm"
+                            loading={applyingOpt === opt.id}
+                            onClick={() => applyOpt(opt.id)}
+                          >
+                            {lastApplied === opt.id ? <><CheckCircle2 size={13} /> {t('gameOpt.applied')}</> : t('gameOpt.apply')}
+                          </Button>
+                        )}
                       </div>
-                      <p className="text-[11px] text-gmuted mt-0.5">
-                        {PLATFORM_LABELS[game.platform]} · PID {game.pid} · {game.exe}
-                      </p>
-                    </div>
-                    {optimizations.find(o => o.gameId === game.id) && (
-                      <Button variant="primary" size="sm" onClick={() => {
-                        const opt = optimizations.find(o => o.gameId === game.id);
-                        if (opt) applyOpt(opt.id);
-                      }}>
-                        {t('gameOpt.applyProfile')}
-                      </Button>
-                    )}
-                  </Card>
-                ))}
+                    </Card>
+                  );
+                })}
               </div>
             </div>
           )}
 
-          <div className="mb-6">
-            <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-gdim mb-3">{t('gameOpt.installedGames')}</h3>
-            {installedGames.length === 0 ? (
-              <Card className="text-center py-8">
-                <Gamepad2 size={36} className="text-gdim mx-auto mb-3" />
-                <p className="text-[13px] text-gmuted">{t('gameOpt.noGamesFound')}</p>
+          {/* Installed Games Grid */}
+          <div className="mb-5">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-gdim">
+                {t('gameOpt.installedGames')} <span className="text-gaccent/60">({filteredInstalled.length})</span>
+              </h3>
+              <Button variant="secondary" size="sm" icon={<Plus size={14} />} onClick={() => setShowNewOpt(true)}>
+                {t('gameOpt.newOpt')}
+              </Button>
+            </div>
+            {filteredInstalled.length === 0 ? (
+              <Card className="text-center py-10">
+                <Gamepad2 size={40} className="text-gdim/40 mx-auto mb-3" />
+                <p className="text-[13px] text-gmuted">{search || platformFilter !== 'all' ? t('gaming.noResults') : t('gameOpt.noGamesFound')}</p>
               </Card>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {installedGames.map(game => {
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                {filteredInstalled.map(game => {
                   const opt = optimizations.find(o => o.gameId === game.id);
+                  const fb = getFallback(game.name);
                   return (
-                    <Card key={game.id} className="relative">
-                      <div className="flex items-center gap-3 mb-2">
-                        <span className="text-lg">{PLATFORM_ICONS[game.platform]}</span>
-                        <div className="min-w-0">
-                          <p className="text-[13px] font-semibold text-gtext truncate">{game.name}</p>
-                          <p className="text-[10px] text-gdim">{PLATFORM_LABELS[game.platform]}</p>
+                    <Card key={game.id} className="group relative overflow-hidden p-0 hover:border-gaccent/30 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_8px_25px_rgba(0,0,0,0.3)]">
+                      {/* Cover */}
+                      <div className="relative h-[140px] overflow-hidden">
+                        <GameLogo name={game.name} size={0} fullWidth className="w-full h-full" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-gpanel via-gpanel/40 to-transparent" />
+
+                        {/* Platform badge */}
+                        <div className="absolute top-2 right-2">
+                          <span className="px-1.5 py-0.5 rounded bg-black/60 backdrop-blur-sm text-[9px] font-medium text-white/80">
+                            {PLATFORM_ICONS[game.platform]} {PLATFORM_LABELS[game.platform]}
+                          </span>
+                        </div>
+
+                        {/* Optimized badge */}
+                        {opt && (
+                          <div className="absolute top-2 left-2">
+                            <span className="px-1.5 py-0.5 rounded bg-gaccent/20 backdrop-blur-sm text-[9px] font-bold text-gaccent flex items-center gap-1">
+                              <CheckCircle2 size={9} /> OPTIMIZADO
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Game name overlay */}
+                        <div className="absolute bottom-0 left-0 right-0 p-3">
+                          <p className="text-[13px] font-bold text-white leading-tight drop-shadow-lg">{game.name}</p>
                         </div>
                       </div>
-                      {game.installPath && (
-                        <p className="text-[10px] text-gdim font-mono truncate mb-2">{game.installPath}</p>
-                      )}
-                      {opt ? (
-                        <div className="flex gap-2">
-                          <Button variant="primary" size="sm" onClick={() => applyOpt(opt.id)} className="flex-1">
-                            {t('gameOpt.apply')}
-                          </Button>
-                          <Button variant="secondary" size="sm" onClick={() => deactivateOpt(opt.id)}>
-                            {t('gameOpt.deactivate')}
-                          </Button>
-                        </div>
-                      ) : (
-                        <Button variant="secondary" size="sm" onClick={() => {
-                          setSelectedGame(game);
-                          setNewOpt(prev => ({ ...prev, name: game.name }));
-                          setShowNewOpt(true);
-                        }} className="w-full">
-                          {t('gameOpt.createProfile')}
-                        </Button>
-                      )}
+
+                      {/* Info + Actions */}
+                      <div className="p-3 pt-2">
+                        {game.installPath && (
+                          <p className="text-[10px] text-gdim font-mono truncate mb-2.5 opacity-60">{game.installPath}</p>
+                        )}
+                        {opt ? (
+                          <div className="flex gap-1.5">
+                            <Button
+                              variant={lastApplied === opt.id ? 'success' : 'primary'}
+                              size="sm"
+                              loading={applyingOpt === opt.id}
+                              onClick={() => applyOpt(opt.id)}
+                              className="flex-1"
+                            >
+                              {lastApplied === opt.id ? <><CheckCircle2 size={12} /> {t('gameOpt.applied')}</> : t('gameOpt.apply')}
+                            </Button>
+                            <Button variant="secondary" size="sm" onClick={() => deactivateOpt(opt.id)}>
+                              {t('gameOpt.deactivate')}
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex gap-1.5">
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              className="flex-1"
+                              icon={<Zap size={12} />}
+                              loading={quickOptGame === game.id}
+                              onClick={() => quickOptimize(game)}
+                            >
+                              {quickOptGame === game.id ? t('gameOpt.quickOptimizing') : t('gameOpt.quickOptimize')}
+                            </Button>
+                            <Button variant="secondary" size="sm" onClick={() => {
+                              setSelectedGame(game);
+                              setNewOpt(prev => ({ ...prev, name: game.name }));
+                              setShowNewOpt(true);
+                            }} icon={<Plus size={12} />} />
+                          </div>
+                        )}
+                      </div>
                     </Card>
                   );
                 })}
               </div>
             )}
           </div>
+        </>
+      )}
 
+      {/* ==================== OPTIMIZER TAB ==================== */}
+      {tab === 'optimizer' && (
+        <>
+          {/* Stats Row */}
+          <div className="grid grid-cols-3 gap-3 mb-5">
+            <Card className="text-center py-3">
+              <div className="text-[28px] font-bold text-gaccent">{games.length}</div>
+              <div className="text-[11px] text-gdim uppercase tracking-wider mt-1">{t('gameOpt.installed')}</div>
+            </Card>
+            <Card className="text-center py-3">
+              <div className="text-[28px] font-bold text-green-400">{runningGames.length}</div>
+              <div className="text-[11px] text-gdim uppercase tracking-wider mt-1">{t('gameOpt.running')}</div>
+            </Card>
+            <Card className="text-center py-3">
+              <div className="text-[28px] font-bold text-blue-400">{optimizations.length}</div>
+              <div className="text-[11px] text-gdim uppercase tracking-wider mt-1">{t('gameOpt.optimizations')}</div>
+            </Card>
+          </div>
+
+          {/* Active Profiles */}
           {optimizations.length > 0 && (
             <div className="mb-6">
-              <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-gdim mb-3">{t('gameOpt.activeProfiles')}</h3>
+              <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-gdim mb-3 flex items-center gap-2">
+                <Crosshair size={12} className="text-blue-400" /> {t('gameOpt.activeProfiles')}
+              </h3>
               <div className="space-y-2">
                 {optimizations.map(opt => (
                   <Card key={opt.id} className="flex items-center gap-4">
@@ -536,15 +673,15 @@ export default function GamingHub() {
                     <div className="flex-1 min-w-0">
                       <p className="text-[13px] font-semibold text-gtext">{opt.name}</p>
                       <div className="flex items-center gap-3 mt-0.5 text-[10px] text-gdim">
-                        {opt.applyPowerPlan && <span><PowerIcon size={10} className="inline" /> Power</span>}
-                        {opt.memoryClean && <span><Zap size={10} className="inline" /> RAM</span>}
+                        {opt.applyPowerPlan && <span className="flex items-center gap-1"><Zap size={9} /> Power</span>}
+                        {opt.memoryClean && <span className="flex items-center gap-1"><HardDrive size={9} /> RAM</span>}
                         {opt.gameDvrOff && <span>DVR Off</span>}
                         {opt.gameModeOn && <span>Game Mode</span>}
-                        <span className="capitalize">Priority: {opt.priority}</span>
+                        <span className="capitalize">P: {opt.priority}</span>
                       </div>
                     </div>
-                    <Button variant="primary" size="sm" onClick={() => applyOpt(opt.id)}>
-                      {t('gameOpt.apply')}
+                    <Button variant={lastApplied === opt.id ? 'success' : 'primary'} size="sm" loading={applyingOpt === opt.id} onClick={() => applyOpt(opt.id)}>
+                      {lastApplied === opt.id ? <><CheckCircle2 size={13} /> {t('gameOpt.applied')}</> : t('gameOpt.apply')}
                     </Button>
                     <Button variant="secondary" size="sm" onClick={() => deleteOpt(opt.id)}>
                       <Trash2 size={14} />
@@ -555,110 +692,74 @@ export default function GamingHub() {
             </div>
           )}
 
-          <Modal open={showNewOpt} onClose={() => { setShowNewOpt(false); setSelectedGame(null); }} title={t('gameOpt.newProfile')}>
-            <div className="space-y-4">
-              {!selectedGame && (
-                <div>
-                  <label className="text-[11px] text-gdim uppercase tracking-wider mb-2 block">{t('gameOpt.selectGame')}</label>
-                  <div className="max-h-[200px] overflow-y-auto space-y-1">
-                    {games.map(game => (
-                      <button
-                        key={game.id}
-                        onClick={() => { setSelectedGame(game); setNewOpt(prev => ({ ...prev, name: game.name })); }}
-                        className="w-full text-left px-3 py-2 rounded-lg hover:bg-gpanel2 transition text-[13px] text-gtext flex items-center gap-2"
-                      >
-                        <span>{PLATFORM_ICONS[game.platform]}</span>
-                        <span className="truncate">{game.name}</span>
-                        {game.running && <StatusBadge tone="ok"><Play size={8} /></StatusBadge>}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {selectedGame && (
-                <>
-                  <div className="flex items-center gap-2 p-3 rounded-lg bg-gpanel2">
-                    <span className="text-lg">{PLATFORM_ICONS[selectedGame.platform]}</span>
-                    <span className="text-[13px] font-semibold text-gtext">{selectedGame.name}</span>
-                  </div>
-
-                  <div>
-                    <label className="text-[11px] text-gdim uppercase tracking-wider mb-1 block">{t('gameOpt.profileName')}</label>
-                    <input
-                      type="text"
-                      value={newOpt.name}
-                      onChange={e => setNewOpt(prev => ({ ...prev, name: e.target.value }))}
-                      className="w-full px-3 py-2 rounded-lg bg-gbase2 border border-gborder text-[13px] text-gtext focus:outline-none focus:border-gaccent"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <label className="flex items-center gap-2 text-[12px] text-gtext">
-                      <input type="checkbox" checked={newOpt.applyPowerPlan} onChange={e => setNewOpt(prev => ({ ...prev, applyPowerPlan: e.target.checked }))} className="accent-green-500" />
-                      {t('gameOpt.powerPlan')}
-                    </label>
-                    <label className="flex items-center gap-2 text-[12px] text-gtext">
-                      <input type="checkbox" checked={newOpt.memoryClean} onChange={e => setNewOpt(prev => ({ ...prev, memoryClean: e.target.checked }))} className="accent-green-500" />
-                      {t('gameOpt.memoryClean')}
-                    </label>
-                    <label className="flex items-center gap-2 text-[12px] text-gtext">
-                      <input type="checkbox" checked={newOpt.gameDvrOff} onChange={e => setNewOpt(prev => ({ ...prev, gameDvrOff: e.target.checked }))} className="accent-green-500" />
-                      Game DVR Off
-                    </label>
-                    <label className="flex items-center gap-2 text-[12px] text-gtext">
-                      <input type="checkbox" checked={newOpt.gameModeOn} onChange={e => setNewOpt(prev => ({ ...prev, gameModeOn: e.target.checked }))} className="accent-green-500" />
-                      Game Mode
-                    </label>
-                    <label className="flex items-center gap-2 text-[12px] text-gtext">
-                      <input type="checkbox" checked={newOpt.fullscreenOptOff} onChange={e => setNewOpt(prev => ({ ...prev, fullscreenOptOff: e.target.checked }))} className="accent-green-500" />
-                      {t('gameOpt.fullscreenOpt')}
-                    </label>
-                    <label className="flex items-center gap-2 text-[12px] text-gtext">
-                      <input type="checkbox" checked={newOpt.networkOptimize} onChange={e => setNewOpt(prev => ({ ...prev, networkOptimize: e.target.checked }))} className="accent-green-500" />
-                      {t('gameOpt.networkOpt')}
-                    </label>
-                  </div>
-
-                  <div>
-                    <label className="text-[11px] text-gdim uppercase tracking-wider mb-1 block">{t('gameOpt.priority')}</label>
-                    <select
-                      value={newOpt.priority}
-                      onChange={e => setNewOpt(prev => ({ ...prev, priority: e.target.value as any }))}
-                      className="w-full px-3 py-2 rounded-lg bg-gbase2 border border-gborder text-[13px] text-gtext focus:outline-none focus:border-gaccent"
-                    >
-                      <option value="normal">{t('gameOpt.priorityNormal')}</option>
-                      <option value="high">{t('gameOpt.priorityHigh')}</option>
-                      <option value="realtime">{t('gameOpt.priorityRealtime')}</option>
-                    </select>
-                  </div>
-                </>
-              )}
-
-              <div className="flex justify-end gap-2 pt-2">
-                <Button variant="secondary" size="sm" onClick={() => { setShowNewOpt(false); setSelectedGame(null); }}>
-                  {t('common.cancel')}
+          {/* Installed Games */}
+          <div className="mb-5">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-gdim">
+                {t('gameOpt.installedGames')} <span className="text-gaccent/60">({installedGames.length})</span>
+              </h3>
+              <div className="flex gap-2">
+                <Button variant="secondary" size="sm" icon={<RefreshCw size={14} />} onClick={loadGames}>
+                  {t('common.refresh')}
                 </Button>
-                {selectedGame && (
-                  <Button variant="primary" size="sm" onClick={createOptimization}>
-                    {t('gameOpt.create')}
-                  </Button>
-                )}
+                <Button variant="primary" size="sm" icon={<Plus size={14} />} onClick={() => setShowNewOpt(true)}>
+                  {t('gameOpt.newOpt')}
+                </Button>
               </div>
             </div>
-          </Modal>
+            {installedGames.length === 0 ? (
+              <Card className="text-center py-8">
+                <Gamepad2 size={36} className="text-gdim mx-auto mb-3" />
+                <p className="text-[13px] text-gmuted">{t('gameOpt.noGamesFound')}</p>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {installedGames.map(game => {
+                  const opt = optimizations.find(o => o.gameId === game.id);
+                  return (
+                    <Card key={game.id} className="group relative overflow-hidden p-0 hover:border-gaccent/30 transition-all">
+                      <div className="relative h-[110px] overflow-hidden">
+                        <GameLogo name={game.name} size={0} fullWidth className="w-full h-full" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-gpanel via-gpanel/40 to-transparent" />
+                        <div className="absolute bottom-0 left-0 right-0 p-3">
+                          <p className="text-[13px] font-bold text-white drop-shadow-lg">{game.name}</p>
+                          <p className="text-[10px] text-white/50">{PLATFORM_ICONS[game.platform]} {PLATFORM_LABELS[game.platform]}</p>
+                        </div>
+                      </div>
+                      <div className="p-3 pt-2">
+                        {opt ? (
+                          <div className="flex gap-1.5">
+                            <Button variant={lastApplied === opt.id ? 'success' : 'primary'} size="sm" loading={applyingOpt === opt.id} onClick={() => applyOpt(opt.id)} className="flex-1">
+                              {lastApplied === opt.id ? <><CheckCircle2 size={12} /> {t('gameOpt.applied')}</> : t('gameOpt.apply')}
+                            </Button>
+                            <Button variant="secondary" size="sm" onClick={() => deactivateOpt(opt.id)}>
+                              {t('gameOpt.deactivate')}
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex gap-1.5">
+                            <Button variant="primary" size="sm" className="flex-1" icon={<Zap size={12} />} loading={quickOptGame === game.id} onClick={() => quickOptimize(game)}>
+                              {quickOptGame === game.id ? t('gameOpt.quickOptimizing') : t('gameOpt.quickOptimize')}
+                            </Button>
+                            <Button variant="secondary" size="sm" onClick={() => { setSelectedGame(game); setNewOpt(prev => ({ ...prev, name: game.name })); setShowNewOpt(true); }} icon={<Plus size={12} />} />
+                          </div>
+                        )}
+                      </div>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </>
       )}
 
+      {/* ==================== PROFILES TAB ==================== */}
       {tab === 'profiles' && (
         <>
           <div className="flex items-center gap-2 flex-wrap mb-6">
-            <Button variant="secondary" size="sm" icon={<RefreshCw size={14} />} onClick={loadProfiles}>
-              {t('common.refresh')}
-            </Button>
-            <Button variant="primary" size="sm" icon={<Plus size={14} />} onClick={() => setShowForm(!showForm)}>
-              {t('realtime.newProfile')}
-            </Button>
+            <Button variant="secondary" size="sm" icon={<RefreshCw size={14} />} onClick={loadProfiles}>{t('common.refresh')}</Button>
+            <Button variant="primary" size="sm" icon={<Plus size={14} />} onClick={() => setShowForm(!showForm)}>{t('realtime.newProfile')}</Button>
           </div>
 
           {rtGames.length > 0 && (
@@ -676,31 +777,18 @@ export default function GamingHub() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                   <label className="text-[11px] text-gdim uppercase tracking-wider">{t('realtime.profileName')}</label>
-                  <input
-                    className="mt-1 w-full bg-gpanel border border-gborder rounded-lg px-3 py-2 text-[13px] text-gtext focus:outline-none focus:border-gaccent"
-                    value={formName}
-                    onChange={(e) => setFormName(e.target.value)}
-                    placeholder={t('realtime.profileNamePlaceholder')}
-                  />
+                  <input className="mt-1 w-full bg-gpanel border border-gborder rounded-lg px-3 py-2 text-[13px] text-gtext focus:outline-none focus:border-gaccent" value={formName} onChange={(e) => setFormName(e.target.value)} placeholder={t('realtime.profileNamePlaceholder')} />
                 </div>
                 <div>
                   <label className="text-[11px] text-gdim uppercase tracking-wider">{t('realtime.game')}</label>
-                  <select
-                    className="mt-1 w-full bg-gpanel border border-gborder rounded-lg px-3 py-2 text-[13px] text-gtext focus:outline-none focus:border-gaccent"
-                    value={formGame}
-                    onChange={(e) => setFormGame(e.target.value)}
-                  >
+                  <select className="mt-1 w-full bg-gpanel border border-gborder rounded-lg px-3 py-2 text-[13px] text-gtext focus:outline-none focus:border-gaccent" value={formGame} onChange={(e) => setFormGame(e.target.value)}>
                     <option value="">{t('realtime.selectGame')}</option>
                     {rtGames.map((g) => <option key={g} value={g}>{g}</option>)}
                   </select>
                 </div>
                 <div>
                   <label className="text-[11px] text-gdim uppercase tracking-wider">{t('realtime.priority')}</label>
-                  <select
-                    className="mt-1 w-full bg-gpanel border border-gborder rounded-lg px-3 py-2 text-[13px] text-gtext focus:outline-none focus:border-gaccent"
-                    value={formPriority}
-                    onChange={(e) => setFormPriority(e.target.value as any)}
-                  >
+                  <select className="mt-1 w-full bg-gpanel border border-gborder rounded-lg px-3 py-2 text-[13px] text-gtext focus:outline-none focus:border-gaccent" value={formPriority} onChange={(e) => setFormPriority(e.target.value as any)}>
                     <option value="normal">{t('realtime.normal')}</option>
                     <option value="high">{t('realtime.high')}</option>
                     <option value="realtime">{t('realtime.realtime')}</option>
@@ -733,26 +821,13 @@ export default function GamingHub() {
                   </div>
                   <div className="flex items-center gap-4 mt-1 text-[10px] text-gdim">
                     <span>{t('realtime.priority')}: <span className="text-gtext">{p.priority}</span></span>
-                    <span>{t('realtime.powerPlan')}: <span className="text-gtext">{p.powerPlan.includes('8c5e7fda') ? 'Alto rendimiento' : 'Equilibrado'}</span></span>
+                    <span>{t('realtime.powerPlan')}: <span className="text-gtext">{p.powerPlan.includes('8c5e7fda') ? t('realtime.powerPlanHigh') : t('realtime.powerPlanBalanced')}</span></span>
                     <span>{t('realtime.memoryClean')}: <span className="text-gtext">{p.memoryClean ? t('common.yes') : t('common.no')}</span></span>
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    loading={applying === p.id}
-                    icon={<Play size={14} />}
-                    onClick={() => applyProfile(p.id)}
-                  >
-                    {t('common.apply')}
-                  </Button>
-                  <Button
-                    variant="outline-danger"
-                    size="sm"
-                    icon={<Trash2 size={14} />}
-                    onClick={() => deleteProfile(p.id)}
-                  />
+                  <Button variant="primary" size="sm" loading={applying === p.id} icon={<Play size={14} />} onClick={() => applyProfile(p.id)}>{t('common.apply')}</Button>
+                  <Button variant="outline-danger" size="sm" icon={<Trash2 size={14} />} onClick={() => deleteProfile(p.id)} />
                 </div>
               </Card>
             ))}
@@ -765,6 +840,89 @@ export default function GamingHub() {
         </>
       )}
 
+      {/* ==================== NEW OPTIMIZATION MODAL ==================== */}
+      <Modal open={showNewOpt} onClose={() => { setShowNewOpt(false); setSelectedGame(null); }} title={t('gameOpt.newProfile')}>
+        <div className="space-y-4">
+          {!selectedGame && (
+            <div>
+              <label className="text-[11px] text-gdim uppercase tracking-wider mb-2 block">{t('gameOpt.selectGame')}</label>
+              <div className="max-h-[240px] overflow-y-auto space-y-1">
+                {games.map(game => (
+                  <button
+                    key={game.id}
+                    onClick={() => { setSelectedGame(game); setNewOpt(prev => ({ ...prev, name: game.name })); }}
+                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-gpanel2 transition text-[13px] text-gtext flex items-center gap-2"
+                  >
+                    <GameLogo name={game.name} size={22} />
+                    <span className="truncate flex-1">{game.name}</span>
+                    <span className="text-[10px] text-gdim shrink-0">{PLATFORM_LABELS[game.platform]}</span>
+                    {game.running && <StatusBadge tone="ok"><Play size={8} /></StatusBadge>}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {selectedGame && (
+            <>
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-gpanel2">
+                <GameLogo name={selectedGame.name} size={28} />
+                <span className="text-[13px] font-semibold text-gtext">{selectedGame.name}</span>
+                <button onClick={() => setSelectedGame(null)} className="ml-auto text-gdim hover:text-gtext"><X size={14} /></button>
+              </div>
+
+              <div>
+                <label className="text-[11px] text-gdim uppercase tracking-wider mb-1 block">{t('gameOpt.profileName')}</label>
+                <input type="text" value={newOpt.name} onChange={e => setNewOpt(prev => ({ ...prev, name: e.target.value }))} className="w-full px-3 py-2 rounded-lg bg-gbase2 border border-gborder text-[13px] text-gtext focus:outline-none focus:border-gaccent" />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <label className="flex items-center gap-2 text-[12px] text-gtext">
+                  <input type="checkbox" checked={newOpt.applyPowerPlan} onChange={e => setNewOpt(prev => ({ ...prev, applyPowerPlan: e.target.checked }))} className="accent-green-500" />
+                  {t('gameOpt.powerPlan')}
+                </label>
+                <label className="flex items-center gap-2 text-[12px] text-gtext">
+                  <input type="checkbox" checked={newOpt.memoryClean} onChange={e => setNewOpt(prev => ({ ...prev, memoryClean: e.target.checked }))} className="accent-green-500" />
+                  {t('gameOpt.memoryClean')}
+                </label>
+                <label className="flex items-center gap-2 text-[12px] text-gtext">
+                  <input type="checkbox" checked={newOpt.gameDvrOff} onChange={e => setNewOpt(prev => ({ ...prev, gameDvrOff: e.target.checked }))} className="accent-green-500" />
+                  Game DVR Off
+                </label>
+                <label className="flex items-center gap-2 text-[12px] text-gtext">
+                  <input type="checkbox" checked={newOpt.gameModeOn} onChange={e => setNewOpt(prev => ({ ...prev, gameModeOn: e.target.checked }))} className="accent-green-500" />
+                  Game Mode
+                </label>
+                <label className="flex items-center gap-2 text-[12px] text-gtext">
+                  <input type="checkbox" checked={newOpt.fullscreenOptOff} onChange={e => setNewOpt(prev => ({ ...prev, fullscreenOptOff: e.target.checked }))} className="accent-green-500" />
+                  {t('gameOpt.fullscreenOpt')}
+                </label>
+                <label className="flex items-center gap-2 text-[12px] text-gtext">
+                  <input type="checkbox" checked={newOpt.networkOptimize} onChange={e => setNewOpt(prev => ({ ...prev, networkOptimize: e.target.checked }))} className="accent-green-500" />
+                  {t('gameOpt.networkOpt')}
+                </label>
+              </div>
+
+              <div>
+                <label className="text-[11px] text-gdim uppercase tracking-wider mb-1 block">{t('gameOpt.priority')}</label>
+                <select value={newOpt.priority} onChange={e => setNewOpt(prev => ({ ...prev, priority: e.target.value as any }))} className="w-full px-3 py-2 rounded-lg bg-gbase2 border border-gborder text-[13px] text-gtext focus:outline-none focus:border-gaccent">
+                  <option value="normal">{t('gameOpt.priorityNormal')}</option>
+                  <option value="high">{t('gameOpt.priorityHigh')}</option>
+                  <option value="realtime">{t('gameOpt.priorityRealtime')}</option>
+                </select>
+              </div>
+            </>
+          )}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="secondary" size="sm" onClick={() => { setShowNewOpt(false); setSelectedGame(null); }}>{t('common.cancel')}</Button>
+            {selectedGame && (
+              <Button variant="primary" size="sm" onClick={createOptimization}>{t('gameOpt.create')}</Button>
+            )}
+          </div>
+        </div>
+      </Modal>
+
       <ConfirmDialog
         open={confirmOn}
         title={t('gaming.confirmOnTitle')}
@@ -774,10 +932,7 @@ export default function GamingHub() {
           memory: memoryClean ? t('gaming.confirmOnMemory') : '',
         })}
         onCancel={() => setConfirmOn(false)}
-        onConfirm={() => {
-          setConfirmOn(false);
-          activate();
-        }}
+        onConfirm={() => { setConfirmOn(false); activate(); }}
       />
       <ConfirmDialog
         open={confirmOff}
@@ -786,10 +941,7 @@ export default function GamingHub() {
         confirmLabel={t('gaming.confirmOffBtn')}
         message={t('gaming.confirmOffMsg')}
         onCancel={() => setConfirmOff(false)}
-        onConfirm={() => {
-          setConfirmOff(false);
-          deactivate();
-        }}
+        onConfirm={() => { setConfirmOff(false); deactivate(); }}
       />
     </div>
   );

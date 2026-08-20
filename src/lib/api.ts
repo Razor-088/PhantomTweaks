@@ -43,14 +43,17 @@ export const api = {
     relaunchAsAdmin: () => invoke<{ ok: boolean; error?: string }>('app:relaunchAsAdmin'),
     openTool: (id: string) => invoke<{ ok: boolean; error?: string }>('app:openTool', id),
     openLogsFolder: () => invoke<{ ok: boolean }>('app:openLogsFolder'),
+    openExternal: (url: string) => invoke<void>('app:openExternal', url),
     quit: () => invoke<void>('app:quit'),
     setStartup: (enabled: boolean) => invoke<void>('app:setStartup', enabled),
     getStartup: () => invoke<boolean>('app:getStartup'),
   },
-  system: {
+   system: {
     overview: () => invoke<Overview>('system:overview'),
     snapshot: () => invoke<MonitorSnapshot>('system:snapshot'),
     health: () => invoke<HealthReport>('system:health'),
+    startPolling: () => invoke<void>('monitor:startPolling'),
+    stopPolling: () => invoke<void>('monitor:stopPolling'),
   },
   perf: {
     report: () => invoke<PerfReport>('perf:report'),
@@ -144,6 +147,7 @@ export const api = {
   inputDelay: {
     scan: () => invoke<InputDelayItem[]>('input-delay:scan'),
     apply: (itemId: string) => invoke<{ ok: boolean; error?: string }>('input-delay:apply', itemId),
+    applyAll: () => invoke<{ ok: boolean; applied: number; failed: number; errors: string[] }>('input-delay:applyAll'),
   },
   profiles: {
     list: () => invoke<GameProfile[]>('profiles:list'),
@@ -172,6 +176,10 @@ export const api = {
     applyProfile: (id: string) => invoke<{ ok: boolean; applied: string[]; errors: string[] }>('nvidia:applyProfile', id),
     applyPreset: (presetId: string) => invoke<{ ok: boolean; applied: string[]; errors: string[] }>('nvidia:applyPreset', presetId),
     presets: () => invoke<NvidiaPreset[]>('nvidia:presets'),
+    quickSetting: (setting: string) => invoke<{ ok: boolean; message: string }>('nvidia:quickSetting', setting),
+    powerLimit: (watts: number) => invoke<{ ok: boolean; message: string }>('nvidia:powerLimit', watts),
+    maxFps: (fps: number) => invoke<{ ok: boolean; message: string }>('nvidia:maxFps', fps),
+    preRender: (frames: number) => invoke<{ ok: boolean; message: string }>('nvidia:preRender', frames),
   },
   games: {
     installed: () => invoke<DetectedGame[]>('games:installed'),
@@ -183,6 +191,9 @@ export const api = {
     applyOptimization: (id: string) => invoke<{ ok: boolean; applied: string[]; errors: string[] }>('games:applyOptimization', id),
     deactivateOptimization: (id: string) => invoke<{ ok: boolean; applied: string[]; errors: string[] }>('games:deactivateOptimization', id),
     boostStatus: () => invoke<GameBoostStatus>('games:boostStatus'),
+    customList: () => invoke<DetectedGame[]>('games:customList'),
+    customSave: (game: DetectedGame) => invoke<{ ok: boolean }>('games:customSave', game),
+    customDelete: (id: string) => invoke<{ ok: boolean }>('games:customDelete', id),
   },
   on: window.phantom.on,
 };

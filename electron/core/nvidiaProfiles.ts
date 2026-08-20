@@ -1,18 +1,23 @@
+import * as fs from 'fs';
 import { runPS, runPSJson } from './ps';
 import { log } from './logging';
+import { dataFile } from './paths';
 import { createScheduleWrite } from '../shared/scheduleWrite';
 
 export interface NvidiaGpu {
   name: string;
   driverVersion: string;
   vramMb: number;
+  vramUsedMb: number | null;
   temperature: number | null;
   utilizationPct: number | null;
   powerDrawW: number | null;
   powerLimitW: number | null;
   clockMhz: number | null;
   memoryClockMhz: number | null;
+  fanSpeedPct: number | null;
   pciBus: number;
+  pcieGen: number | null;
   index: number;
 }
 
@@ -43,8 +48,7 @@ let profilesCache: NvidiaProfile[] | null = null;
 function loadProfiles(): NvidiaProfile[] {
   if (profilesCache) return profilesCache;
   try {
-    const { dataFile } = require('./paths');
-    profilesCache = JSON.parse(require('fs').readFileSync(dataFile(NVIDIA_PROFILES_FILE), 'utf-8')) as NvidiaProfile[];
+    profilesCache = JSON.parse(fs.readFileSync(dataFile(NVIDIA_PROFILES_FILE), 'utf-8')) as NvidiaProfile[];
   } catch {
     profilesCache = [];
   }
@@ -57,23 +61,26 @@ export async function detectNvidiaGpus(): Promise<NvidiaGpu[]> {
   const ps = `
     $gpus = @()
     try {
-      $smi = & nvidia-smi --query-gpu=index,name,driver_version,memory.total,temperature.gpu,utilization.gpu,power.draw,power.limit,clocks.current.graphics,clocks.current.memory --format=csv,noheader,nounits 2>$null
+      $smi = & nvidia-smi --query-gpu=index,name,driver_version,memory.total,memory.used,temperature.gpu,utilization.gpu,power.draw,power.limit,clocks.current.graphics,clocks.current.memory,fan.speed,pcie.link.gen.current --format=csv,noheader,nounits 2>$null
       if ($smi) {
         foreach ($line in $smi) {
           $parts = $line -split ',\\s*'
-          if ($parts.Count -ge 10) {
+          if ($parts.Count -ge 13) {
             $gpus += [PSCustomObject]@{
               index = [int]$parts[0].Trim()
               name = $parts[1].Trim()
               driverVersion = $parts[2].Trim()
               vramMb = [int]$parts[3].Trim()
-              temperature = if ($parts[4].Trim() -eq '[N/A]') { $null } else { [int]$parts[4].Trim() }
-              utilizationPct = if ($parts[5].Trim() -eq '[N/A]') { $null } else { [int]$parts[5].Trim() }
-              powerDrawW = if ($parts[6].Trim() -eq '[N/A]') { $null } else { [double]$parts[6].Trim() }
-              powerLimitW = if ($parts[7].Trim() -eq '[N/A]') { $null } else { [double]$parts[7].Trim() }
-              clockMhz = if ($parts[8].Trim() -eq '[N/A]') { $null } else { [int]$parts[8].Trim() }
-              memoryClockMhz = if ($parts[9].Trim() -eq '[N/A]') { $null } else { [int]$parts[9].Trim() }
+              vramUsedMb = if ($parts[4].Trim() -eq '[N/A]') { $null } else { [int]$parts[4].Trim() }
+              temperature = if ($parts[5].Trim() -eq '[N/A]') { $null } else { [int]$parts[5].Trim() }
+              utilizationPct = if ($parts[6].Trim() -eq '[N/A]') { $null } else { [int]$parts[6].Trim() }
+              powerDrawW = if ($parts[7].Trim() -eq '[N/A]') { $null } else { [double]$parts[7].Trim() }
+              powerLimitW = if ($parts[8].Trim() -eq '[N/A]') { $null } else { [double]$parts[8].Trim() }
+              clockMhz = if ($parts[9].Trim() -eq '[N/A]') { $null } else { [int]$parts[9].Trim() }
+              memoryClockMhz = if ($parts[10].Trim() -eq '[N/A]') { $null } else { [int]$parts[10].Trim() }
+              fanSpeedPct = if ($parts[11].Trim() -eq '[N/A]') { $null } else { [int]$parts[11].Trim() }
               pciBus = 0
+              pcieGen = if ($parts[12].Trim() -eq '[N/A]') { $null } else { [int]$parts[12].Trim() }
             }
           }
         }
@@ -345,4 +352,104 @@ export async function getNvidiaSystemInfo(): Promise<{
   }
 
   return { available, gpus, driverOutdated, driverVersion };
+}
+
+export type NvidiaQuickSetting = 'lowLatency' | 'vsyncOff' | 'shaderCache' | 'texturePerf' | 'powerMax';
+
+export async function applyQuickSetting(setting: NvidiaQuickSetting): Promise<{ ok: boolean; message: string }> {
+  const psMap: Record<NvidiaQuickSetting, string> = {
+    lowLatency: `
+      $regPath = 'HKLM:\\SOFTWARE\\NVIDIA Corporation\\Global\\NVTweak'
+      if (!(Test-Path $regPath)) { New-Item -Path $regPath -Force | Out-Null }
+      Set-ItemProperty -Path $regPath -Name 'DisableLowLatencyBoost' -Value 0 -Type DWord -ErrorAction SilentlyContinue
+      $regPath2 = 'HKCU:\\Software\\NVIDIA Corporation\\Global\\NVTweak'
+      if (!(Test-Path $regPath2)) { New-Item -Path $regPath2 -Force | Out-Null }
+      Set-ItemProperty -Path $regPath2 -Name 'LowLatencyBoost' -Value 1 -Type DWord -ErrorAction SilentlyContinue
+      nvidia-smi -pl 100 2>$null
+      echo 'ok:Low Latency Mode activado'
+    `,
+    vsyncOff: `
+      $regPath = 'HKCU:\\Software\\NVIDIA Corporation\\Global\\NVTweak'
+      if (!(Test-Path $regPath)) { New-Item -Path $regPath -Force | Out-Null }
+      Set-ItemProperty -Path $regPath -Name 'VSyncControl' -Value 0 -Type DWord -ErrorAction SilentlyContinue
+      echo 'ok:V-Sync forzado OFF'
+    `,
+    shaderCache: `
+      $regPath = 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Class\\{4d36e968-e325-11ce-bfc1-08002be10318}\\0000'
+      if (Test-Path $regPath) {
+        Set-ItemProperty -Path $regPath -Name 'RMCacheableGpuRam' -Value 1 -Type DWord -ErrorAction SilentlyContinue
+      }
+      echo 'ok:Shader Cache habilitado'
+    `,
+    texturePerf: `
+      $regPath = 'HKCU:\\Software\\NVIDIA Corporation\\Global\\NVTweak'
+      if (!(Test-Path $regPath)) { New-Item -Path $regPath -Force | Out-Null }
+      Set-ItemProperty -Path $regPath -Name 'TextureFilterQuality' -Value 0x00000001 -Type DWord -ErrorAction SilentlyContinue
+      echo 'ok:Calidad de texturas → Rendimiento'
+    `,
+    powerMax: `
+      $gpus = nvidia-smi --query-gpu=power.limit --format=csv,noheader,nounits 2>$null
+      if ($gpus) {
+        $maxW = ($gpus | ForEach-Object { [double]$_.Trim() } | Measure-Object -Maximum).Maximum
+        nvidia-smi -pl ([int]($maxW * 1.10)) 2>$null
+      }
+      echo 'ok:Potencia máxima (+10%)'
+    `,
+  };
+  try {
+    const r = await runPS(psMap[setting], 10000);
+    const out = r.stdout.trim();
+    if (out.startsWith('ok:')) {
+      return { ok: true, message: out.slice(3) };
+    }
+    return { ok: r.code === 0, message: 'Ajuste aplicado' };
+  } catch {
+    return { ok: false, message: 'Error al aplicar ajuste' };
+  }
+}
+
+export async function setPowerLimit(watts: number): Promise<{ ok: boolean; message: string }> {
+  try {
+    const r = await runPS(`nvidia-smi -pl ${watts} 2>$null; if ($LASTEXITCODE -eq 0) { echo 'ok' } else { echo 'fail' }`, 10000);
+    return { ok: r.stdout.trim() === 'ok', message: r.stdout.trim() === 'ok' ? `Límite de potencia: ${watts}W` : 'Error al establecer límite' };
+  } catch {
+    return { ok: false, message: 'Error al establecer límite de potencia' };
+  }
+}
+
+export async function setMaxFps(fps: number): Promise<{ ok: boolean; message: string }> {
+  try {
+    const ps = `
+      $regPath = 'HKCU:\\Software\\NVIDIA Corporation\\Global\\NVTweak'
+      if (!(Test-Path $regPath)) { New-Item -Path $regPath -Force | Out-Null }
+      if (${fps} -eq 0) {
+        Remove-ItemProperty -Path $regPath -Name 'MaxFrameRate' -ErrorAction SilentlyContinue
+        echo 'ok:FPS sin límite'
+      } else {
+        Set-ItemProperty -Path $regPath -Name 'MaxFrameRate' -Value ${fps} -Type DWord -ErrorAction SilentlyContinue
+        echo "ok:FPS máximo: ${fps}"
+      }
+    `;
+    const r = await runPS(ps, 10000);
+    const out = r.stdout.trim();
+    return { ok: out.startsWith('ok:'), message: out.startsWith('ok:') ? out.slice(3) : 'Error' };
+  } catch {
+    return { ok: false, message: 'Error al establecer FPS máximo' };
+  }
+}
+
+export async function setPreRender(frames: number): Promise<{ ok: boolean; message: string }> {
+  try {
+    const ps = `
+      $regPath = 'HKCU:\\Software\\NVIDIA Corporation\\Global\\NVTweak'
+      if (!(Test-Path $regPath)) { New-Item -Path $regPath -Force | Out-Null }
+      Set-ItemProperty -Path $regPath -Name 'PreRenderLimit' -Value ${frames} -Type DWord -ErrorAction SilentlyContinue
+      echo "ok:Pre-render: ${frames} frames"
+    `;
+    const r = await runPS(ps, 10000);
+    const out = r.stdout.trim();
+    return { ok: out.startsWith('ok:'), message: out.startsWith('ok:') ? out.slice(3) : 'Error' };
+  } catch {
+    return { ok: false, message: 'Error al establecer pre-render' };
+  }
 }

@@ -72,7 +72,8 @@ function createWindow() {
 
 app.setAppUserModelId('com.phantontweaks.app');
 
-const gotLock = app.requestSingleInstanceLock();
+const isRelaunching = process.argv.includes('--relaunching');
+const gotLock = isRelaunching ? true : app.requestSingleInstanceLock();
 if (!gotLock) {
   app.quit();
 } else {

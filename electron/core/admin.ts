@@ -21,13 +21,14 @@ export async function relaunchAsAdmin(): Promise<{ ok: boolean; error?: string }
   try {
     const exe = process.execPath;
     const args = process.argv.slice(1);
+    args.push('--relaunching');
     const argList = args.length > 0
       ? ` @(${args.map(a => `'${a.replace(/'/g, "''")}'`).join(', ')})`
       : '';
     const ps = `Start-Process -FilePath '${exe.replace(/'/g, "''")}' -ArgumentList${argList} -Verb RunAs -Wait:$false`;
     const r = await runPS(ps, 15000);
     if (r.code === 0) {
-      setTimeout(() => app.quit(), 2000);
+      app.quit();
       return { ok: true };
     }
     const err = r.stderr.trim();

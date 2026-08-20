@@ -31,6 +31,7 @@ const ACTIONS: Array<{
 ];
 
 function Bar({ icon, label, value, display, color }: { icon: React.ReactNode; label: string; value: number; display: string; color: string }) {
+  const textColor = color.includes('danger') ? '#ff4d6d' : color.includes('warn') ? '#ffb84d' : color.includes('info') ? '#4dc3ff' : color.includes('accent2') ? '#00d66b' : '#00ff88';
   return (
     <div className="flex-1 min-w-0">
       <div className="flex items-center justify-between mb-1.5">
@@ -38,7 +39,7 @@ function Bar({ icon, label, value, display, color }: { icon: React.ReactNode; la
           {icon}
           {label}
         </span>
-        <span className="font-mono text-[13px] font-semibold" style={{ color }}>
+        <span className="font-mono text-[13px] font-semibold" style={{ color: textColor }}>
           {display}
         </span>
       </div>

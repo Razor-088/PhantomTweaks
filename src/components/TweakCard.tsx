@@ -36,7 +36,11 @@ export function TweakCard({ tweak, onApply, onRevert, busy, confirmChanges }: Pr
   };
 
   return (
-    <div className={`panel p-4 transition-all duration-200 panel-hover ${tweak.applied ? 'border-gaccent/30 bg-gaccent-dim/30' : 'hover:border-gborder2'}`}>
+    <div className={`panel p-4 transition-all duration-300 ${
+      tweak.applied
+        ? 'border-gaccent/30 bg-gaccent-dim/30 shadow-[0_0_16px_-4px_rgba(0,255,136,0.08)]'
+        : 'panel-hover'
+    }`}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">

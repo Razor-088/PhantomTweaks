@@ -22,6 +22,11 @@ export interface PowercfgPayload {
   schemeName: string;
 }
 
+export interface PowershellPayload {
+  kind: 'powershell';
+  command: string;
+}
+
 export interface ChangeRecord {
   id: string;
   date: string;
@@ -31,7 +36,7 @@ export interface ChangeRecord {
   action: string;
   reversible: boolean;
   reverted: boolean;
-  payload: RegistryPayload | PowercfgPayload | null;
+  payload: RegistryPayload | PowercfgPayload | PowershellPayload | null;
 }
 
 let cache: ChangeRecord[] | null = null;
@@ -100,7 +105,11 @@ export async function revertChange(id: string): Promise<{ ok: boolean; error?: s
         await regSet(p.key, p.valueName, p.revertType || p.type, p.revertData);
       }
     } else if (p.kind === 'powercfg') {
-      await runPS(`powercfg -setactive ${p.schemeGuid}`);
+      const r = await runPS(`powercfg -setactive ${p.schemeGuid}`);
+      if (r.code !== 0) throw new Error(r.stderr || 'No se pudo restaurar el plan de energía.');
+    } else if (p.kind === 'powershell') {
+      const r = await runPS(p.command, 20000);
+      if (r.code !== 0) throw new Error(r.stderr || 'No se pudo ejecutar el comando de reversión.');
     }
 
     c.reverted = true;

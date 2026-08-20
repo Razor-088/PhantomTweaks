@@ -17,7 +17,7 @@ export const ProgressBar = React.memo(function ProgressBar({ value, max = 100, c
         className={`h-full rounded-full transition-all duration-500 ease-out ${barClassName || 'bg-gaccent'}`}
         style={{
           width: `${pct}%`,
-          boxShadow: '0 0 10px rgba(0,255,136,0.35)',
+          boxShadow: '0 0 12px rgba(0,255,136,0.3), 0 0 4px rgba(0,255,136,0.5)',
         }}
       />
       {animated && (

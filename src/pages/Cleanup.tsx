@@ -64,7 +64,6 @@ export default function Cleanup() {
   const totalBytes = categories?.filter((c) => c.selected).reduce((s, c) => s + c.size, 0) ?? 0;
   const totalFiles = categories?.filter((c) => c.selected).reduce((s, c) => s + c.files, 0) ?? 0;
   const selectedCount = categories?.filter((c) => c.selected).length ?? 0;
-  const allSelected = categories?.every((c) => c.selected === c.available || !c.available) ?? false;
 
   return (
     <div className="max-w-[1100px] mx-auto">
@@ -80,14 +79,16 @@ export default function Cleanup() {
         }
       />
 
+      {/* Hero */}
       {!categories && !scanning && (
-        <Card>
-          <div className="flex flex-col items-center py-14 text-center">
-            <div className="p-4 rounded-2xl bg-gaccent-dim border border-gaccent/30 mb-4">
-              <Trash2 size={40} className="text-gaccent" strokeWidth={1.4} />
+        <Card variant="glow" className="relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-gaccent/5 via-transparent to-transparent pointer-events-none" />
+          <div className="relative flex flex-col items-center py-14 text-center">
+            <div className="p-5 rounded-2xl bg-gaccent-dim border border-gaccent/30 mb-5 shadow-[0_0_40px_rgba(0,255,136,0.15)]">
+              <Trash2 size={44} className="text-gaccent" strokeWidth={1.4} />
             </div>
-            <div className="text-[16px] font-semibold text-gtext">{t('cleanup.heroTitle')}</div>
-            <p className="text-[12.5px] text-gmuted mt-1.5 max-w-md leading-relaxed">{t('cleanup.heroDesc')}</p>
+            <div className="text-[18px] font-bold text-gtext">{t('cleanup.heroTitle')}</div>
+            <p className="text-[13px] text-gmuted mt-2 max-w-md leading-relaxed">{t('cleanup.heroDesc')}</p>
             <Button className="mt-6" size="lg" icon={<ScanSearch size={16} />} onClick={scan}>
               {t('cleanup.scan')}
             </Button>
@@ -95,8 +96,9 @@ export default function Cleanup() {
         </Card>
       )}
 
+      {/* Scanning */}
       {scanning && (
-        <Card>
+        <Card variant="glow">
           <PageSpinner text={t('cleanup.scanning')} />
           {progress && (
             <div className="px-6 pb-6">
@@ -107,6 +109,7 @@ export default function Cleanup() {
         </Card>
       )}
 
+      {/* Results */}
       {categories && !scanning && (
         <>
           <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
@@ -139,12 +142,12 @@ export default function Cleanup() {
             </button>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-2 stagger">
             {categories.map((c) => (
               <div
                 key={c.id}
-                className={`panel p-3.5 flex items-center gap-3 transition-colors ${
-                  c.selected ? 'border-gaccent/25' : 'opacity-70'
+                className={`panel p-3.5 flex items-center gap-3 transition-all duration-200 ${
+                  c.selected ? 'border-gaccent/25 bg-gaccent-dim/20 shadow-[0_0_12px_-4px_rgba(0,255,136,0.06)]' : 'opacity-70'
                 }`}
               >
                 <button
@@ -158,7 +161,9 @@ export default function Cleanup() {
                     <Square size={18} className="text-gdim hover:text-gmuted" />
                   )}
                 </button>
-                <FolderOpen size={18} className={`shrink-0 ${c.available ? 'text-gaccent' : 'text-gdim'}`} />
+                <div className="w-9 h-9 rounded-xl bg-gaccent/10 flex items-center justify-center shrink-0">
+                  <FolderOpen size={17} className={c.available ? 'text-gaccent' : 'text-gdim'} />
+                </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-[13px] font-medium text-gtext">{c.name}</div>
                   <div className="text-[11.5px] text-gdim truncate" title={c.description}>
@@ -174,7 +179,7 @@ export default function Cleanup() {
             ))}
           </div>
 
-          <div className="flex items-start gap-2.5 mt-4 panel p-3.5">
+          <div className="flex items-start gap-2.5 mt-4 panel p-3.5 border-gwarn/20">
             <AlertTriangle size={15} className="text-gwarn shrink-0 mt-0.5" />
             <p className="text-[11.5px] text-gmuted leading-relaxed">{t('cleanup.warning')}</p>
           </div>
@@ -188,14 +193,12 @@ export default function Cleanup() {
               <>
                 <p>{t('cleanup.confirmCount', { n: selectedCount })}</p>
                 <ul className="mt-2 space-y-1 max-h-40 overflow-y-auto pr-2">
-                  {categories
-                    .filter((c) => c.selected)
-                    .map((c) => (
-                      <li key={c.id} className="flex justify-between text-[12px]">
-                        <span className="text-gmuted">{c.name}</span>
-                        <span className="font-mono text-gmuted">{formatBytes(c.size)}</span>
-                      </li>
-                    ))}
+                  {categories.filter((c) => c.selected).map((c) => (
+                    <li key={c.id} className="flex justify-between text-[12px]">
+                      <span className="text-gmuted">{c.name}</span>
+                      <span className="font-mono text-gmuted">{formatBytes(c.size)}</span>
+                    </li>
+                  ))}
                 </ul>
                 <p className="mt-3 text-gwarn flex items-center gap-1.5">
                   <AlertTriangle size={14} />

@@ -1,16 +1,16 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { runPS, runPSJson } from './ps';
-import { dataFile, ensureFile } from './paths';
+import { runPS } from './ps';
+import { dataFile } from './paths';
 import { log } from './logging';
-import { optimizeMemory, emptyStandbyList } from './windowsTweaks';
+import { optimizeMemory } from './windowsTweaks';
 import { createScheduleWrite } from '../shared/scheduleWrite';
 
 export interface DetectedGame {
   id: string;
   name: string;
   exe: string | null;
-  platform: 'steam' | 'epic' | 'riot' | 'xbox' | 'gog' | 'other';
+  platform: 'steam' | 'epic' | 'riot' | 'xbox' | 'gog' | 'battle.net' | 'other';
   installPath: string | null;
   running: boolean;
   pid: number | null;
@@ -33,50 +33,112 @@ export interface GameOptimization {
 }
 
 const KNOWN_GAMES: Array<{ name: string; exe: string; platform: DetectedGame['platform'] }> = [
-  { name: 'VALORANT', exe: 'valorant.exe', platform: 'riot' },
-  { name: 'League of Legends', exe: 'league of legends.exe', platform: 'riot' },
-  { name: 'League of Legends', exe: 'leagueclient.exe', platform: 'riot' },
-  { name: 'Fortnite', exe: 'fortniteclient-win64-shipping.exe', platform: 'epic' },
-  { name: 'Fortnite', exe: 'fortnitelauncher.exe', platform: 'epic' },
+  // Valve / Steam
   { name: 'Counter-Strike 2', exe: 'cs2.exe', platform: 'steam' },
   { name: 'Counter-Strike 2', exe: 'cs2_win64.exe', platform: 'steam' },
   { name: 'Dota 2', exe: 'dota2.exe', platform: 'steam' },
+  { name: 'Team Fortress 2', exe: 'tf2.exe', platform: 'steam' },
+  { name: 'Portal 2', exe: 'portal2.exe', platform: 'steam' },
+  { name: 'Left 4 Dead 2', exe: 'left4dead2.exe', platform: 'steam' },
+  { name: 'Half-Life: Alyx', exe: 'hlvr.exe', platform: 'steam' },
+
+  // Battle Royale / Shooters
   { name: 'Apex Legends', exe: 'r5apex.exe', platform: 'steam' },
-  { name: 'Apex Legends', exe: 'apex legends.exe', platform: 'other' },
-  { name: 'Call of Duty: Modern Warfare', exe: 'modernwarfare.exe', platform: 'other' },
-  { name: 'Call of Duty: Warzone', exe: 'modernwarfare.exe', platform: 'other' },
   { name: 'PUBG: BATTLEGROUNDS', exe: 'tslgame.exe', platform: 'steam' },
-  { name: 'Overwatch 2', exe: 'overwatch.exe', platform: 'other' },
-  { name: 'Rocket League', exe: 'rocketleague.exe', platform: 'epic' },
-  { name: 'Grand Theft Auto V', exe: 'gta5.exe', platform: 'steam' },
-  { name: 'Cyberpunk 2077', exe: 'cyberpunk2077.exe', platform: 'gog' },
-  { name: 'Elden Ring', exe: 'eldenring.exe', platform: 'steam' },
-  { name: 'Starfield', exe: 'starfield.exe', platform: 'other' },
-  { name: 'Palworld', exe: 'palworld-win64-shipping.exe', platform: 'steam' },
-  { name: 'Minecraft', exe: 'javaw.exe', platform: 'other' },
-  { name: 'Minecraft', exe: 'minecraft.exe', platform: 'other' },
-  { name: 'Hogwarts Legacy', exe: 'hogwartslegacy.exe', platform: 'steam' },
-  { name: 'Diablo IV', exe: 'diablo iv.exe', platform: 'other' },
-  { name: 'Hollow Knight', exe: 'hollow knight.exe', platform: 'steam' },
-  { name: 'Baldurs Gate 3', exe: 'bg3.exe', platform: 'steam' },
-  { name: 'Red Dead Redemption 2', exe: 'rdr2.exe', platform: 'other' },
-  { name: 'Tom Clancys Rainbow Six Siege', exe: 'rainbowsix.exe', platform: 'steam' },
-  { name: 'Tom Clancys Rainbow Six Siege', exe: 'rainbowsix_vulkan.exe', platform: 'steam' },
+  { name: 'Fortnite', exe: 'fortniteclient-win64-shipping.exe', platform: 'epic' },
+  { name: 'Fortnite', exe: 'fortnitelauncher.exe', platform: 'epic' },
+  { name: 'Call of Duty: MW II', exe: 'modernwarfare2.exe', platform: 'steam' },
+  { name: 'Call of Duty: MW III', exe: 'modernwarfare3.exe', platform: 'steam' },
+  { name: 'Call of Duty: Warzone', exe: 'warzone.exe', platform: 'steam' },
+  { name: 'Call of Duty: Warzone', exe: 'modernwarfare.exe', platform: 'other' },
   { name: 'Battlefield 2042', exe: 'bf2042.exe', platform: 'other' },
-  { name: 'Minecraft Legends', exe: 'minecraftlegends.exe', platform: 'other' },
+  { name: 'Battlefield V', exe: 'bfv.exe', platform: 'other' },
   { name: 'The Finals', exe: 'thefinals.exe', platform: 'steam' },
+  { name: 'The Finals', exe: 'thefinalseg.exe', platform: 'steam' },
+  { name: 'Marathon', exe: 'marathon.exe', platform: 'other' },
+
+  // Hero Shooters
+  { name: 'Overwatch 2', exe: 'overwatch.exe', platform: 'battle.net' },
+  { name: 'Valorant', exe: 'valorant.exe', platform: 'riot' },
   { name: 'Marvel Rivals', exe: 'marvelrivals.exe', platform: 'steam' },
+  { name: 'Marvel Rivals', exe: 'MarvelRivals.exe', platform: 'steam' },
+
+  // MMOs / RPGs
+  { name: 'Diablo IV', exe: 'diablo iv.exe', platform: 'battle.net' },
+  { name: 'Diablo IV', exe: 'diabloiv.exe', platform: 'battle.net' },
+  { name: 'World of Warcraft', exe: 'wow.exe', platform: 'battle.net' },
+  { name: 'Elden Ring', exe: 'eldenring.exe', platform: 'steam' },
+  { name: 'Baldur\'s Gate 3', exe: 'bg3.exe', platform: 'steam' },
+  { name: 'Cyberpunk 2077', exe: 'cyberpunk2077.exe', platform: 'gog' },
+  { name: 'Hogwarts Legacy', exe: 'hogwartslegacy.exe', platform: 'steam' },
+  { name: 'Red Dead Redemption 2', exe: 'rdr2.exe', platform: 'steam' },
+  { name: 'Starfield', exe: 'starfield.exe', platform: 'other' },
+  { name: 'Final Fantasy VII Rebirth', exe: 'ff7rebirth.exe', platform: 'steam' },
+  { name: 'Final Fantasy XIV', exe: 'ffxiv.exe', platform: 'other' },
   { name: 'Genshin Impact', exe: 'genshinimpact.exe', platform: 'other' },
-  { name: 'Roblox', exe: 'robloxplayerbeta.exe', platform: 'other' },
-  { name: 'League of Legends', exe: 'riotclientservices.exe', platform: 'riot' },
-  { name: 'Teamfight Tactics', exe: 'riotclientstables.exe', platform: 'riot' },
-  { name: 'Dead by Daylight', exe: 'deadbydaylight.exe', platform: 'steam' },
+  { name: 'Honkai: Star Rail', exe: 'starrail.exe', platform: 'other' },
+  { name: 'Wuthering Waves', exe: 'client.exe', platform: 'other' },
+
+  // Survival / Sandbox
+  { name: 'Palworld', exe: 'palworld-win64-shipping.exe', platform: 'steam' },
   { name: 'Rust', exe: 'rust.exe', platform: 'steam' },
   { name: 'Terraria', exe: 'terraria.exe', platform: 'steam' },
+  { name: 'Minecraft', exe: 'javaw.exe', platform: 'other' },
+  { name: 'Minecraft', exe: 'minecraft.exe', platform: 'other' },
+  { name: 'Minecraft', exe: 'Minecraft.Windows.exe', platform: 'xbox' },
+  { name: 'Subnautica', exe: 'subnautica.exe', platform: 'steam' },
+  { name: 'Valheim', exe: 'valheim.exe', platform: 'steam' },
+  { name: 'ARK: Survival Evolved', exe: 'shootergame.exe', platform: 'steam' },
+
+  // Racing
+  { name: 'Rocket League', exe: 'rocketleague.exe', platform: 'epic' },
+  { name: 'Forza Horizon 5', exe: 'forzahorizon5.exe', platform: 'other' },
+  { name: 'Forza Motorsport', exe: 'forzamotorsport.exe', platform: 'other' },
+
+  // Fighting
+  { name: 'TEKKEN 8', exe: 'tekken8.exe', platform: 'steam' },
+  { name: 'Street Fighter 6', exe: 're-engine.exe', platform: 'steam' },
+
+  // Action / Adventure
+  { name: 'Star Wars Outlaws', exe: 'starwarsoutlaws.exe', platform: 'other' },
+  { name: 'Black Myth: Wukong', exe: 'b1.exe', platform: 'steam' },
+  { name: 'God of War Ragnarok', exe: 'GoWR.exe', platform: 'steam' },
+  { name: 'Ghost of Tsushima', exe: 'GoT.exe', platform: 'steam' },
+  { name: 'Hollow Knight', exe: 'hollow knight.exe', platform: 'steam' },
+  { name: 'Hollow Knight: Silksong', exe: 'silksong.exe', platform: 'steam' },
+
+  // Co-op / Party
+  { name: 'Lethal Company', exe: 'Lethal Company.exe', platform: 'steam' },
+  { name: 'Deep Rock Galactic', exe: 'FSDWin64.exe', platform: 'steam' },
+  { name: 'Helldivers 2', exe: 'helldivers2.exe', platform: 'steam' },
+  { name: 'It Takes Two', exe: 'ItTakesTwo.exe', platform: 'steam' },
+
+  // Strategy
+  { name: 'Civilization VI', exe: 'civilizationvi.exe', platform: 'steam' },
+  { name: 'Total War: Warhammer III', exe: 'warhammer3.exe', platform: 'steam' },
+
+  // Riot
+  { name: 'League of Legends', exe: 'leagueclient.exe', platform: 'riot' },
+  { name: 'League of Legends', exe: 'league of legends.exe', platform: 'riot' },
+  { name: 'Teamfight Tactics', exe: 'riotclientstables.exe', platform: 'riot' },
+  { name: '2XKO', exe: '2xko.exe', platform: 'riot' },
+
+  // Misc
+  { name: 'Roblox', exe: 'robloxplayerbeta.exe', platform: 'other' },
+  { name: 'Dead by Daylight', exe: 'deadbydaylight.exe', platform: 'steam' },
   { name: 'Stardew Valley', exe: 'stardewvalley.exe', platform: 'steam' },
+  { name: 'Fall Guys', exe: 'fallguys_client.exe', platform: 'epic' },
+  { name: 'Fortnite', exe: 'FortniteLauncher.exe', platform: 'epic' },
+  { name: 'Phasmophobia', exe: 'Phasmophobia.exe', platform: 'steam' },
+  { name: 'Satisfactory', exe: 'FactoryGameSteam.exe', platform: 'steam' },
+  { name: 'The First Descendant', exe: 'TheFirstDescendant.exe', platform: 'steam' },
+  { name: 'Once Human', exe: 'OnceHuman.exe', platform: 'steam' },
+  { name: 'Delta Force', exe: 'deltaforce.exe', platform: 'steam' },
+  { name: 'Zenless Zone Zero', exe: 'ZenlessZoneZero.exe', platform: 'other' },
 ];
 
 const GAME_OPTIMIZATIONS_FILE = 'gameOptimizations.json';
+const CUSTOM_GAMES_FILE = 'customGames.json';
 let optCache: GameOptimization[] | null = null;
 
 function loadOptimizations(): GameOptimization[] {
@@ -89,92 +151,249 @@ function loadOptimizations(): GameOptimization[] {
   return optCache!;
 }
 
+export function loadCustomGames(): DetectedGame[] {
+  try {
+    return JSON.parse(fs.readFileSync(dataFile(CUSTOM_GAMES_FILE), 'utf-8')) as DetectedGame[];
+  } catch {
+    return [];
+  }
+}
+
+export function saveCustomGame(game: DetectedGame): { ok: boolean } {
+  const list = loadCustomGames();
+  const idx = list.findIndex(g => g.id === game.id);
+  if (idx >= 0) list[idx] = game;
+  else list.push(game);
+  fs.writeFileSync(dataFile(CUSTOM_GAMES_FILE), JSON.stringify(list, null, 2));
+  return { ok: true };
+}
+
+export function deleteCustomGame(id: string): { ok: boolean } {
+  const list = loadCustomGames().filter(g => g.id !== id);
+  fs.writeFileSync(dataFile(CUSTOM_GAMES_FILE), JSON.stringify(list, null, 2));
+  return { ok: true };
+}
+
 const scheduleWrite = createScheduleWrite(() => optCache, GAME_OPTIMIZATIONS_FILE);
 
-const STEAM_PATHS = [
-  'C:\\Program Files (x86)\\Steam\\steamapps\\common',
-  'D:\\Steam\\steamapps\\common',
-  'E:\\Steam\\steamapps\\common',
-  'D:\\SteamLibrary\\steamapps\\common',
-  'E:\\SteamLibrary\\steamapps\\common',
-  'F:\\SteamLibrary\\steamapps\\common',
-];
+function getDynamicSteamBases(): string[] {
+  const bases: string[] = [];
+  const programFiles = [
+    'C:\\Program Files (x86)\\Steam',
+    'C:\\Program Files\\Steam',
+  ];
+  for (const p of programFiles) {
+    try { if (fs.existsSync(p)) bases.push(p); } catch { /* ignore */ }
+  }
+  const drives = ['C:', 'D:', 'E:', 'F:', 'G:'];
+  for (const d of drives) {
+    const extra = [`${d}\\Steam`, `${d}\\SteamLibrary`, `${d}\\Games\\Steam`];
+    for (const p of extra) {
+      try { if (fs.existsSync(p) && !bases.includes(p)) bases.push(p); } catch { /* ignore */ }
+    }
+  }
+  return bases;
+}
 
-const EPIC_PATHS = [
-  'C:\\Program Files\\Epic Games',
-  'D:\\Epic Games',
-  'E:\\Epic Games',
-];
+function parseSteamLibraries(): string[] {
+  const paths: string[] = [];
+  const bases = getDynamicSteamBases();
+  for (const base of bases) {
+    const vdf = path.join(base, 'steamapps', 'libraryfolders.vdf');
+    try {
+      const content = fs.readFileSync(vdf, 'utf-8');
+      const dirMatches = content.matchAll(/"path"\s+"([^"]+)"/gi);
+      for (const m of dirMatches) {
+        const libPath = m[1].replace(/\\\\/g, '\\');
+        const common = path.join(libPath, 'steamapps', 'common');
+        if (!paths.includes(common)) paths.push(common);
+      }
+      const localCommon = path.join(base, 'steamapps', 'common');
+      if (!paths.includes(localCommon)) paths.push(localCommon);
+    } catch {
+      const localCommon = path.join(base, 'steamapps', 'common');
+      if (!paths.includes(localCommon)) paths.push(localCommon);
+    }
+  }
+  return paths;
+}
 
-const GOG_PATHS = [
-  'C:\\GOG Games',
-  'D:\\GOG Games',
-  'C:\\Program Files (x86)\\GOG Galaxy\\Games',
-];
+function parseSteamAppManifests(): Array<{ name: string; installDir: string; steamBase: string }> {
+  const results: Array<{ name: string; installDir: string; steamBase: string }> = [];
+  const bases = getDynamicSteamBases();
+  for (const base of bases) {
+    const steamApps = path.join(base, 'steamapps');
+    try {
+      const files = fs.readdirSync(steamApps);
+      for (const f of files) {
+        if (!f.startsWith('appmanifest_') || !f.endsWith('.acf')) continue;
+        try {
+          const content = fs.readFileSync(path.join(steamApps, f), 'utf-8');
+          const name = content.match(/"name"\s+"([^"]+)"/)?.[1];
+          const installDir = content.match(/"installdir"\s+"([^"]+)"/)?.[1];
+          if (name && installDir) {
+            results.push({ name, installDir, steamBase: base });
+          }
+        } catch { /* skip */ }
+      }
+    } catch { /* skip */ }
+  }
+  return results;
+}
 
-const XBOX_PATHS = [
-  'C:\\Program Files\\WindowsApps',
-  'D:\\XboxGames',
-];
+function parseEpicManifests(): string[] {
+  const paths: string[] = [];
+  const epicBasePaths = ['C:\\Program Files\\Epic Games', 'D:\\Epic Games', 'E:\\Epic Games', 'C:\\Games\\Epic Games', 'D:\\Games\\Epic Games'];
+  for (const p of epicBasePaths) {
+    try { if (fs.existsSync(p)) paths.push(p); } catch { /* ignore */ }
+  }
+  const manifestDirs = [
+    'C:\\ProgramData\\Epic\\EpicGamesLauncher\\Data\\Manifests',
+    'D:\\ProgramData\\Epic\\EpicGamesLauncher\\Data\\Manifests',
+  ];
+  for (const manifestDir of manifestDirs) {
+    try {
+      const files = fs.readdirSync(manifestDir);
+      for (const f of files) {
+        if (!f.endsWith('.item')) continue;
+        try {
+          const data = JSON.parse(fs.readFileSync(path.join(manifestDir, f), 'utf-8'));
+          if (data.InstallLocation && !paths.includes(data.InstallLocation)) {
+            paths.push(data.InstallLocation);
+          }
+        } catch { /* skip */ }
+      }
+    } catch { /* no manifest dir */ }
+  }
+  return paths;
+}
+
+function scanDirDeep(dirPath: string, maxDepth: number, depth = 0): fs.Dirent[] {
+  if (depth > maxDepth) return [];
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(dirPath, { withFileTypes: true });
+  } catch { return []; }
+  return entries;
+}
+
+function findExesInDir(dirPath: string, maxDepth: number, depth = 0): string[] {
+  if (depth > maxDepth) return [];
+  const exes: string[] = [];
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(dirPath, { withFileTypes: true });
+  } catch { return exes; }
+  for (const entry of entries) {
+    if (entry.isFile() && entry.name.toLowerCase().endsWith('.exe')) {
+      exes.push(path.join(dirPath, entry.name));
+    } else if (entry.isDirectory() && depth < maxDepth) {
+      exes.push(...findExesInDir(path.join(dirPath, entry.name), maxDepth, depth + 1));
+    }
+  }
+  return exes;
+}
+
+const GAME_DIRS_TO_SKIP = new Set([
+  'steamworks shared', 'commonredist', 'directx', 'vcredist', '_commonredist',
+  'redist', 'prereqs', 'support', 'tools', 'launcher', 'sdk',
+]);
 
 async function findInstalledGames(): Promise<DetectedGame[]> {
   const found: DetectedGame[] = [];
   const seen = new Set<string>();
 
-  async function scanDir(dirPath: string) {
-    let entries: fs.Dirent[];
-    try {
-      entries = await fs.promises.readdir(dirPath, { withFileTypes: true });
-    } catch { return; }
-    for (const entry of entries) {
-      if (!entry.isDirectory()) continue;
-      const fullPath = path.join(dirPath, entry.name);
-      try {
-        const files = await fs.promises.readdir(fullPath);
-        const exeFiles = files.filter(f => f.endsWith('.exe'));
-        for (const exe of exeFiles) {
-          const exeLower = exe.toLowerCase();
-          const known = KNOWN_GAMES.find(g => g.exe.toLowerCase() === exeLower);
-          if (known && !seen.has(exeLower)) {
-            seen.add(exeLower);
-            found.push({
-              id: `${known.platform}-${exeLower.replace(/\s+/g, '-')}`,
-              name: known.name,
-              exe: exe,
-              platform: known.platform,
-              installPath: fullPath,
-              running: false,
-              pid: null,
-            });
-          }
-        }
-      } catch { /* skip inaccessible */ }
+  function addGame(exePath: string, platform: DetectedGame['platform']) {
+    const exeName = path.basename(exePath);
+    const exeLower = exeName.toLowerCase();
+    if (seen.has(exeLower)) return;
+    const known = KNOWN_GAMES.find(g => g.exe.toLowerCase() === exeLower);
+    if (known) {
+      seen.add(exeLower);
+      found.push({
+        id: `${known.platform}-${exeLower.replace(/\s+/g, '-')}`,
+        name: known.name,
+        exe: exeName,
+        platform: known.platform || platform,
+        installPath: path.dirname(exePath),
+        running: false,
+        pid: null,
+      });
     }
   }
 
-  const dirs = [...STEAM_PATHS, ...EPIC_PATHS, ...GOG_PATHS, ...XBOX_PATHS];
-  await Promise.all(dirs.map(p => scanDir(p)));
+  const steamDirs = parseSteamLibraries();
+  const epicDirs = parseEpicManifests();
+  const allDirs = [...steamDirs, ...epicDirs,
+    'C:\\GOG Games', 'D:\\GOG Games', 'C:\\Program Files (x86)\\GOG Galaxy\\Games',
+    'C:\\Program Files\\WindowsApps', 'D:\\XboxGames', 'E:\\XboxGames',
+  ];
+
+  for (const dir of allDirs) {
+    let topEntries: fs.Dirent[];
+    try {
+      topEntries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch { continue; }
+    for (const entry of topEntries) {
+      if (!entry.isDirectory()) continue;
+      const dirName = entry.name.toLowerCase();
+      if (GAME_DIRS_TO_SKIP.has(dirName)) continue;
+      const fullPath = path.join(dir, entry.name);
+      const exes = findExesInDir(fullPath, 3);
+      for (const exe of exes) {
+        addGame(exe, 'steam');
+      }
+    }
+  }
+
+  const manifests = parseSteamAppManifests();
+  for (const m of manifests) {
+    if (seen.has(m.name.toLowerCase())) continue;
+    const installDir = path.join(m.steamBase, 'steamapps', 'common', m.installDir);
+    const exes = findExesInDir(installDir, 3);
+    for (const exe of exes) {
+      addGame(exe, 'steam');
+    }
+  }
+
+  for (const game of KNOWN_GAMES) {
+    if (seen.has(game.exe.toLowerCase().trim())) continue;
+    const extraBases = [
+      'C:\\Program Files (x86)', 'C:\\Program Files',
+      'D:\\', 'E:\\', 'C:\\Games', 'D:\\Games',
+      'C:\\Riot Games', 'D:\\Riot Games',
+      'C:\\Program Files (x86)\\Overwatch',
+      'C:\\Program Files\\Overwatch',
+    ];
+    for (const base of extraBases) {
+      const exePath = path.join(base, game.exe);
+      try {
+        fs.accessSync(exePath);
+        addGame(exePath, game.platform);
+        break;
+      } catch { /* not found */ }
+    }
+  }
 
   return found;
 }
 
 export async function detectInstalledGames(): Promise<DetectedGame[]> {
-  const installed = await findInstalledGames();
+  let installed = await findInstalledGames();
+
+  const custom = loadCustomGames();
+  for (const c of custom) {
+    if (!installed.find(g => g.id === c.id)) {
+      installed.push({ ...c, running: false, pid: null });
+    }
+  }
 
   const runningPs = await runPS(`
-    $known = @('valorant','leagueclient','league of legends','fortniteclient','fortnitelauncher',
-      'cs2','cs2_win64','dota2','r5apex','modernwarfare','tslgame','overwatch',
-      'rocketleague','gta5','cyberpunk2077','eldenring','starfield','palworld',
-      'javaw','minecraft','hogwartslegacy','diablo iv','hollow knight','bg3',
-      'rdr2','rainbowsix','bf2042','thefinals','marvelrivals','genshinimpact',
-      'robloxplayerbeta','deadbydaylight','rust','terraria','stardewvalley',
-      'riotclientservices','riotclientstables')
     $procs = Get-Process | Where-Object {
-      $name = $_.ProcessName.ToLower()
-      $known -contains $name -or $name -like '*game*' -or $name -like '*launcher*'
+      $_.ProcessName -ne 'Idle'
     } | Select-Object Id, ProcessName
     if ($procs) { $procs | ConvertTo-Json -Depth 3 -Compress } else { '[]' }
-  `, 10000);
+  `, 15000);
 
   let running: Array<{ Id: number; ProcessName: string }> = [];
   try {
@@ -182,16 +401,22 @@ export async function detectInstalledGames(): Promise<DetectedGame[]> {
     running = Array.isArray(parsed) ? parsed : (parsed ? [parsed] : []);
   } catch { /* ignore */ }
 
+  const runningMap = new Map<string, number>();
+  for (const r of running) {
+    runningMap.set(r.ProcessName.toLowerCase(), r.Id);
+  }
+
   for (const game of installed) {
-    const exeName = game.exe?.replace(/\.exe$/i, '').toLowerCase() || '';
-    const match = running.find(r => r.ProcessName.toLowerCase() === exeName);
-    if (match) {
+    if (!game.exe) continue;
+    const exeName = game.exe.replace(/\.exe$/i, '').toLowerCase();
+    const pid = runningMap.get(exeName);
+    if (pid != null) {
       game.running = true;
-      game.pid = match.Id;
+      game.pid = pid;
     }
   }
 
-  log('INFO', 'games', `Juegos detectados: ${installed.length} instalados, ${running.length} ejecutándose`);
+  log('INFO', 'games', `Juegos detectados: ${installed.length} instalados, ${running.length} procesos activos`);
   return installed;
 }
 
@@ -243,7 +468,6 @@ export async function applyGameOptimization(
   const applied: string[] = [];
   const errors: string[] = [];
 
-  // Set power plan
   if (opt.applyPowerPlan) {
     try {
       const r = await runPS('powercfg -setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c', 10000);
@@ -252,7 +476,6 @@ export async function applyGameOptimization(
     } catch { errors.push('Error al cambiar plan de energía'); }
   }
 
-  // Set process priority
   if (opt.gameId) {
     const game = (await detectInstalledGames()).find(g => g.id === opt.gameId);
     if (game?.exe) {
@@ -272,7 +495,6 @@ export async function applyGameOptimization(
     }
   }
 
-  // Memory clean
   if (opt.memoryClean) {
     try {
       const memResult = await optimizeMemory();

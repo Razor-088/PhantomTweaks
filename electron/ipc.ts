@@ -28,18 +28,20 @@ import { computeHealth } from './core/systemHealth';
 import { openTool } from './core/tools';
 import { runTerminalCommand, classifyCommand, isBlocked, CommandClass } from './core/commandExecutor';
 import { isAdmin, relaunchAsAdmin } from './core/admin';
-import { scanInputDelay, applyInputDelay } from './core/inputDelay';
+import { scanInputDelay, applyInputDelay, applyAllInputDelay } from './core/inputDelay';
 import { listProfiles, getProfile, saveProfile, deleteProfile, applyProfile, restoreProfile, detectRunningGames } from './core/profileManager';
 import { activateLicense, validateLicense, deactivateLocal, getLicenseStatusAsync } from './core/licenseClient';
 import {
   detectNvidiaGpus, isNvidiaAvailable, getNvidiaSmiOutput,
   listNvidiaProfiles, getNvidiaProfile, saveNvidiaProfile, deleteNvidiaProfile,
-  applyNvidiaProfile, applyPresetProfile, getPresetProfiles, getNvidiaSystemInfo
+  applyNvidiaProfile, applyPresetProfile, getPresetProfiles, getNvidiaSystemInfo,
+  applyQuickSetting, setPowerLimit, setMaxFps, setPreRender
 } from './core/nvidiaProfiles';
 import {
   detectInstalledGames, detectRunningGames as detectRunningGamesOpt,
   listGameOptimizations, getGameOptimization, saveGameOptimization, deleteGameOptimization,
-  applyGameOptimization, deactivateGameOptimization, getGameBoostStatus
+  applyGameOptimization, deactivateGameOptimization, getGameBoostStatus,
+  loadCustomGames, saveCustomGame, deleteCustomGame
 } from './core/gameOptimizer';
 
 export type Push = (channel: string, payload: any) => void;
@@ -65,23 +67,32 @@ function notify(title: string, body: string) {
   }
 }
 
+let snapshotTimer: NodeJS.Timeout | null = null;
+let snapshotRunning = false;
+
+function stopSnapshotTimer() {
+  if (snapshotTimer) {
+    clearInterval(snapshotTimer);
+    snapshotTimer = null;
+  }
+  snapshotRunning = false;
+}
+
 function startSnapshotTimer(getWin: () => BrowserWindow | null) {
-  if (intervalTimers.length) return;
-  let running = false;
-  const timer = setInterval(async () => {
+  if (snapshotTimer) return;
+  snapshotRunning = true;
+  const tick = async () => {
     const w = getWin();
-    if (running || !w || w.isDestroyed()) return;
-    running = true;
+    if (!snapshotRunning || !w || w.isDestroyed()) return;
     try {
       const snap = await getMonitorSnapshot();
       if (!w.isDestroyed()) w.webContents.send('monitor:snapshot', snap);
     } catch {
       /* ignore */
-    } finally {
-      running = false;
     }
-  }, 2500);
-  intervalTimers.push(timer);
+  };
+  tick();
+  snapshotTimer = setInterval(tick, 2500);
 }
 
 async function setRunOnStartup(enabled: boolean) {
@@ -123,6 +134,10 @@ export function registerIpc(getWin: () => BrowserWindow | null, push: Push) {
   ipcMain.handle('app:getStartup', () => getRunOnStartup());
   ipcMain.handle('app:openLogsFolder', () => {
     shell.openPath(getDataDir());
+    return { ok: true };
+  });
+  ipcMain.handle('app:openExternal', (_e, url: string) => {
+    shell.openExternal(url);
     return { ok: true };
   });
 
@@ -176,6 +191,9 @@ export function registerIpc(getWin: () => BrowserWindow | null, push: Push) {
   ipcMain.handle('tweaks:apply', async (_e, id: string, opts?: { createRestorePoint?: boolean }) => {
     const t = getTweak(id);
     if (!t) return { applied: false, message: 'Optimización desconocida.' };
+    if (t.requiresAdmin && !(await isAdmin())) {
+      return { applied: false, message: 'Esta optimización requiere privilegios de administrador.' };
+    }
     const settings = getSettings();
     const needsRestore =
       opts?.createRestorePoint ||
@@ -190,6 +208,9 @@ export function registerIpc(getWin: () => BrowserWindow | null, push: Push) {
   ipcMain.handle('tweaks:revert', async (_e, id: string) => {
     const t = getTweak(id);
     if (!t) return { reverted: false, message: 'Optimización desconocida.' };
+    if (t.requiresAdmin && !(await isAdmin())) {
+      return { reverted: false, message: 'Esta optimización requiere privilegios de administrador.' };
+    }
     return t.revert();
   });
 
@@ -289,6 +310,7 @@ export function registerIpc(getWin: () => BrowserWindow | null, push: Push) {
   // ---------- input delay ----------
   ipcMain.handle('input-delay:scan', () => scanInputDelay());
   ipcMain.handle('input-delay:apply', (_e, itemId: string) => applyInputDelay(itemId));
+  ipcMain.handle('input-delay:applyAll', () => applyAllInputDelay());
 
   // ---------- profiles ----------
   ipcMain.handle('profiles:list', () => listProfiles());
@@ -299,11 +321,19 @@ export function registerIpc(getWin: () => BrowserWindow | null, push: Push) {
   ipcMain.handle('profiles:restore', (_e, id: string) => restoreProfile(id));
   ipcMain.handle('profiles:detectGames', () => detectRunningGames());
 
-  // ---------- license ----------
+   // ---------- license ----------
   ipcMain.handle('license:activate', (_e, key: string) => activateLicense(key));
   ipcMain.handle('license:validate', () => validateLicense());
   ipcMain.handle('license:deactivate', () => deactivateLocal());
   ipcMain.handle('license:getStatus', () => getLicenseStatusAsync());
+
+  // ---------- monitor polling (page-aware) ----------
+  ipcMain.handle('monitor:startPolling', () => {
+    startSnapshotTimer(getWin);
+  });
+  ipcMain.handle('monitor:stopPolling', () => {
+    stopSnapshotTimer();
+  });
 
   // ---------- nvidia ----------
   ipcMain.handle('nvidia:systemInfo', () => getNvidiaSystemInfo());
@@ -317,6 +347,10 @@ export function registerIpc(getWin: () => BrowserWindow | null, push: Push) {
   ipcMain.handle('nvidia:applyProfile', (_e, id: string) => applyNvidiaProfile(id));
   ipcMain.handle('nvidia:applyPreset', (_e, presetId: string) => applyPresetProfile(presetId));
   ipcMain.handle('nvidia:presets', () => getPresetProfiles());
+  ipcMain.handle('nvidia:quickSetting', (_e, setting: string) => applyQuickSetting(setting as any));
+  ipcMain.handle('nvidia:powerLimit', (_e, watts: number) => setPowerLimit(watts));
+  ipcMain.handle('nvidia:maxFps', (_e, fps: number) => setMaxFps(fps));
+  ipcMain.handle('nvidia:preRender', (_e, frames: number) => setPreRender(frames));
 
   // ---------- game optimizer ----------
   ipcMain.handle('games:installed', () => detectInstalledGames());
@@ -328,6 +362,7 @@ export function registerIpc(getWin: () => BrowserWindow | null, push: Push) {
   ipcMain.handle('games:applyOptimization', (_e, id: string) => applyGameOptimization(id));
   ipcMain.handle('games:deactivateOptimization', (_e, id: string) => deactivateGameOptimization(id));
   ipcMain.handle('games:boostStatus', () => getGameBoostStatus());
-
-  startSnapshotTimer(win);
+  ipcMain.handle('games:customList', () => loadCustomGames());
+  ipcMain.handle('games:customSave', (_e, game: any) => saveCustomGame(game));
+  ipcMain.handle('games:customDelete', (_e, id: string) => deleteCustomGame(id));
 }

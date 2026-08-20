@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Cpu, GpuIcon as Gpu, MemoryStick, HardDrive, Network, Thermometer, Clock, Gauge, RefreshCw } from 'lucide-react';
+import { Cpu, GpuIcon as Gpu, MemoryStick, HardDrive, Network as NetworkIcon, Thermometer, Clock, Gauge, RefreshCw } from 'lucide-react';
 import { api } from '../lib/api';
 import { useAppStore } from '../store/useAppStore';
 import { PageHeader } from '../components/ui/PageHeader';
@@ -25,6 +25,37 @@ function Metric({ label, value, unit }: { label: string; value: string; unit?: s
   );
 }
 
+function HardwareCard({
+  icon: Icon, title, subtitle, value, valueColor = 'text-gaccent', metrics, children,
+}: {
+  icon: typeof Cpu; title: string; subtitle: string; value: string; valueColor?: string;
+  metrics: Array<{ label: string; value: string; unit?: string }>;
+  children?: React.ReactNode;
+}) {
+  return (
+    <Card
+      variant="glow"
+      title={
+        <span className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-xl bg-gaccent/10 flex items-center justify-center">
+            <Icon size={16} className="text-gaccent" />
+          </div>
+          {title}
+        </span>
+      }
+      subtitle={subtitle}
+      actions={
+        <span className={`font-mono text-[20px] font-bold ${valueColor}`}>{value}</span>
+      }
+    >
+      <div className="space-y-1 mb-3">
+        {metrics.map((m) => <Metric key={m.label} {...m} />)}
+      </div>
+      {children}
+    </Card>
+  );
+}
+
 export default function Performance() {
   const { t } = useI18n();
   const snapshot = useAppStore((s) => s.snapshot);
@@ -46,11 +77,10 @@ export default function Performance() {
   useEffect(() => {
     load();
     refreshTimer.current = setInterval(() => {
+      if (document.hidden) return;
       api.perf.report().then(setReport).catch(() => undefined);
     }, 5000);
-    return () => {
-      if (refreshTimer.current) clearInterval(refreshTimer.current);
-    };
+    return () => { if (refreshTimer.current) clearInterval(refreshTimer.current); };
   }, []);
 
   useEffect(() => {
@@ -61,11 +91,17 @@ export default function Performance() {
     netDownH.push(snapshot.net.downMbps);
   }, [snapshot]);
 
+  useEffect(() => {
+    return () => { cpuH.reset(); gpuH.reset(); ramH.reset(); netDownH.reset(); };
+  }, []);
+
   if (loading) return <PageSpinner text={t('performance.loading')} />;
   if (!report) return <PageSpinner text={t('performance.failed')} />;
 
   const { cpu, gpu, ram, disk, net } = report;
   const netMax = Math.max(10, Math.ceil(Math.max(...netDownH.data, 0)));
+  const cpuColor = cpu.usage >= 80 ? 'text-gdanger' : cpu.usage >= 60 ? 'text-gwarn' : 'text-gaccent';
+  const ramColor = ram.pct >= 80 ? 'text-gdanger' : ram.pct >= 60 ? 'text-gwarn' : 'text-gaccent';
 
   return (
     <div className="max-w-[1200px] mx-auto">
@@ -79,75 +115,67 @@ export default function Performance() {
         }
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 stagger">
         {/* CPU */}
-        <Card
-          title="CPU"
-          subtitle={cpu.model}
-          actions={
-            <span className="font-mono text-[20px] font-bold text-gaccent">{Math.round(cpu.usage)}%</span>
-          }
+        <HardwareCard
+          icon={Cpu} title="CPU" subtitle={cpu.model}
+          value={`${Math.round(cpu.usage)}%`} valueColor={cpuColor}
+          metrics={[
+            { label: t('performance.cores'), value: String(cpu.cores) },
+            { label: t('performance.threads'), value: String(cpu.threads) },
+            { label: t('performance.freq'), value: formatClock(cpu.clockMhz) },
+            { label: t('performance.freqMax'), value: formatClock(cpu.maxClock) },
+            { label: t('performance.temp'), value: cpu.temp != null ? `${cpu.temp}` : t('common.na'), unit: '°C' },
+          ]}
         >
-          <ProgressBar value={cpu.usage} height={8} barClassName={cpu.usage >= 80 ? 'bg-gdanger' : cpu.usage >= 60 ? 'bg-gwarn' : 'bg-gaccent'} />
-          <div className="mt-3">
-            <Metric label={t('performance.cores')} value={String(cpu.cores)} />
-            <Metric label={t('performance.threads')} value={String(cpu.threads)} />
-            <Metric label={t('performance.freq')} value={formatClock(cpu.clockMhz)} />
-            <Metric label={t('performance.freqMax')} value={formatClock(cpu.maxClock)} />
-            <Metric label={t('performance.temp')} value={cpu.temp != null ? `${cpu.temp}` : t('common.na')} unit="°C" />
-          </div>
-          {cpuH.hasData && <LiveChart data={cpuH.data} height={70} />}
-        </Card>
+          <ProgressBar value={cpu.usage} height={6} barClassName={cpu.usage >= 80 ? 'bg-gdanger' : cpu.usage >= 60 ? 'bg-gwarn' : 'bg-gaccent'} />
+          {cpuH.hasData && <div className="mt-3"><LiveChart data={cpuH.data} height={65} /></div>}
+        </HardwareCard>
 
         {/* GPU */}
-        <Card
-          title="GPU"
-          subtitle={gpu.model}
-          actions={
-            <span className="font-mono text-[20px] font-bold text-gaccent">
-              {gpu.usage != null ? `${Math.round(gpu.usage)}%` : '—'}
-            </span>
-          }
+        <HardwareCard
+          icon={Gpu} title="GPU" subtitle={gpu.model}
+          value={gpu.usage != null ? `${Math.round(gpu.usage)}%` : '—'}
+          metrics={[
+            { label: t('performance.vram'), value: gpu.totalMb != null ? `${Math.round(gpu.totalMb / 1024)}` : t('common.na'), unit: 'GB' },
+            { label: t('performance.vramUsage'), value: gpu.usedMb != null ? `${Math.round(gpu.usedMb / 1024)}` : t('common.na'), unit: 'GB' },
+            { label: t('performance.temp'), value: gpu.temp != null ? `${gpu.temp}` : t('common.na'), unit: '°C' },
+            { label: t('performance.driver'), value: gpu.driver || t('common.na') },
+          ]}
         >
-          <ProgressBar value={gpu.usage ?? 0} height={8} />
-          <div className="mt-3">
-            <Metric label={t('performance.vram')} value={gpu.totalMb != null ? `${Math.round(gpu.totalMb / 1024)}` : t('common.na')} unit="GB" />
-            <Metric label={t('performance.vramUsage')} value={gpu.usedMb != null ? `${Math.round(gpu.usedMb / 1024)}` : t('common.na')} unit="GB" />
-            <Metric label={t('performance.temp')} value={gpu.temp != null ? `${gpu.temp}` : t('common.na')} unit="°C" />
-            <Metric label={t('performance.driver')} value={gpu.driver || t('common.na')} />
-          </div>
-          {gpuH.hasData && <LiveChart data={gpuH.data} height={70} />}
-        </Card>
+          <ProgressBar value={gpu.usage ?? 0} height={6} />
+          {gpuH.hasData && <div className="mt-3"><LiveChart data={gpuH.data} height={65} /></div>}
+        </HardwareCard>
 
         {/* RAM */}
-        <Card
-          title={t('performance.ramTitle')}
-          subtitle={t('performance.ramSubtitle')}
-          actions={<span className="font-mono text-[20px] font-bold text-gaccent">{Math.round(ram.pct)}%</span>}
+        <HardwareCard
+          icon={MemoryStick} title={t('performance.ramTitle')} subtitle={t('performance.ramSubtitle')}
+          value={`${Math.round(ram.pct)}%`} valueColor={ramColor}
+          metrics={[
+            { label: t('performance.total'), value: `${ram.totalGb}`, unit: 'GB' },
+            { label: t('performance.used'), value: `${ram.usedGb}`, unit: 'GB' },
+            { label: t('performance.available'), value: `${ram.freeGb}`, unit: 'GB' },
+            { label: t('performance.utilization'), value: `${Math.round(ram.pct)}`, unit: '%' },
+          ]}
         >
-          <ProgressBar value={ram.pct} height={8} barClassName={ram.pct >= 80 ? 'bg-gdanger' : ram.pct >= 60 ? 'bg-gwarn' : 'bg-gaccent'} />
-          <div className="mt-3">
-            <Metric label={t('performance.total')} value={`${ram.totalGb}`} unit="GB" />
-            <Metric label={t('performance.used')} value={`${ram.usedGb}`} unit="GB" />
-            <Metric label={t('performance.available')} value={`${ram.freeGb}`} unit="GB" />
-            <Metric label={t('performance.utilization')} value={`${Math.round(ram.pct)}`} unit="%" />
-          </div>
-          {ramH.hasData && <LiveChart data={ramH.data} height={70} />}
-        </Card>
+          <ProgressBar value={ram.pct} height={6} barClassName={ram.pct >= 80 ? 'bg-gdanger' : ram.pct >= 60 ? 'bg-gwarn' : 'bg-gaccent'} />
+          {ramH.hasData && <div className="mt-3"><LiveChart data={ramH.data} height={65} /></div>}
+        </HardwareCard>
 
         {/* Disk */}
-        <Card
-          title={t('performance.diskTitle')}
+        <HardwareCard
+          icon={HardDrive} title={t('performance.diskTitle')}
           subtitle={`${disk.model ?? t('performance.mainDisk')} · ${disk.mediaType ?? '—'}`}
-          actions={<span className="font-mono text-[20px] font-bold text-gaccent">{Math.round(disk.pct)}%</span>}
+          value={`${Math.round(disk.pct)}%`}
+          valueColor={disk.pct >= 85 ? 'text-gdanger' : 'text-gaccent'}
+          metrics={[
+            { label: t('performance.capacity'), value: `${disk.totalGb}`, unit: 'GB' },
+            { label: t('performance.free'), value: `${disk.freeGb}`, unit: 'GB' },
+            { label: t('performance.read'), value: formatMbps(disk.readMbps) },
+            { label: t('performance.write'), value: formatMbps(disk.writeMbps) },
+          ]}
         >
-          <ProgressBar value={disk.pct} height={8} barClassName={disk.pct >= 85 ? 'bg-gdanger' : 'bg-gaccent'} />
-          <div className="mt-3">
-            <Metric label={t('performance.capacity')} value={`${disk.totalGb}`} unit="GB" />
-            <Metric label={t('performance.free')} value={`${disk.freeGb}`} unit="GB" />
-            <Metric label={t('performance.read')} value={formatMbps(disk.readMbps)} />
-            <Metric label={t('performance.write')} value={formatMbps(disk.writeMbps)} />
-          </div>
+          <ProgressBar value={disk.pct} height={6} barClassName={disk.pct >= 85 ? 'bg-gdanger' : 'bg-gaccent'} />
           {disk.perDrive.length > 1 && (
             <div className="mt-3 space-y-2">
               {disk.perDrive.map((d) => (
@@ -159,26 +187,21 @@ export default function Performance() {
               ))}
             </div>
           )}
-        </Card>
+        </HardwareCard>
 
         {/* Network */}
-        <Card
-          title={t('performance.netTitle')}
+        <HardwareCard
+          icon={NetworkIcon} title={t('performance.netTitle')}
           subtitle={`${net.adapter ?? '—'} · ${net.ip ?? t('performance.noIp')}`}
-          actions={
-            <div className="text-right">
-              <div className="font-mono text-[15px] font-bold text-gaccent">↓ {net.downMbps} <span className="text-[10px] text-gdim">Mbps</span></div>
-              <div className="font-mono text-[13px] text-gmuted">↑ {net.upMbps} <span className="text-[10px] text-gdim">Mbps</span></div>
-            </div>
-          }
+          value={`${net.downMbps} ↓ ${net.upMbps} ↑`}
+          metrics={[
+            { label: t('performance.gateway'), value: net.gateway || '—' },
+            { label: t('performance.dns'), value: (net.dns || []).join(', ') || '—' },
+            { label: t('performance.latency'), value: net.latency != null ? `${net.latency}` : t('common.na'), unit: 'ms' },
+          ]}
         >
-          <div className="mt-3">
-            <Metric label={t('performance.gateway')} value={net.gateway || '—'} />
-            <Metric label={t('performance.dns')} value={(net.dns || []).join(', ') || '—'} />
-            <Metric label={t('performance.latency')} value={net.latency != null ? `${net.latency}` : t('common.na')} unit="ms" />
-          </div>
-          {netDownH.hasData && <LiveChart data={netDownH.data} color="#00d66b" height={60} min={0} max={netMax} />}
-        </Card>
+          {netDownH.hasData && <div className="mt-3"><LiveChart data={netDownH.data} color="#00d66b" height={65} min={0} max={netMax} /></div>}
+        </HardwareCard>
       </div>
     </div>
   );

@@ -2,7 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 
 const ALLOWED_INVOKE = new Set([
   'app:getInfo', 'app:isAdmin', 'app:relaunchAsAdmin', 'app:openTool',
-  'app:quit', 'app:setStartup', 'app:getStartup', 'app:openLogsFolder',
+  'app:quit', 'app:setStartup', 'app:getStartup', 'app:openLogsFolder', 'app:openExternal',
   'system:overview', 'system:snapshot', 'system:health',
   'perf:report',
   'processes:list', 'processes:kill', 'processes:info',
@@ -22,15 +22,18 @@ const ALLOWED_INVOKE = new Set([
   'logs:get', 'logs:export', 'logs:clear',
   'settings:get', 'settings:set', 'settings:setMany', 'settings:reset',
   'terminal:classify', 'terminal:exec', 'terminal:blocked',
-  'input-delay:scan', 'input-delay:apply',
+  'input-delay:scan', 'input-delay:apply', 'input-delay:applyAll',
   'profiles:list', 'profiles:get', 'profiles:save', 'profiles:delete', 'profiles:apply', 'profiles:restore', 'profiles:detectGames',
   'license:activate', 'license:validate', 'license:deactivate', 'license:getStatus',
   'nvidia:systemInfo', 'nvidia:gpus', 'nvidia:available', 'nvidia:smi',
   'nvidia:profiles', 'nvidia:getProfile', 'nvidia:saveProfile', 'nvidia:deleteProfile',
   'nvidia:applyProfile', 'nvidia:applyPreset', 'nvidia:presets',
+  'nvidia:quickSetting', 'nvidia:powerLimit', 'nvidia:maxFps', 'nvidia:preRender',
   'games:installed', 'games:running', 'games:optimizations', 'games:getOptimization',
   'games:saveOptimization', 'games:deleteOptimization', 'games:applyOptimization',
   'games:deactivateOptimization', 'games:boostStatus',
+  'games:customList', 'games:customSave', 'games:customDelete',
+  'monitor:startPolling', 'monitor:stopPolling',
 ]);
 
 const ALLOWED_ON = new Set([

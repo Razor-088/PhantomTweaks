@@ -9,17 +9,17 @@ import { useI18n } from './lib/i18n';
 import type { PageId } from './store/useAppStore';
 import type { AppSettings } from './lib/types';
 
+import { ProgressLoader } from './components/ui/Spinner';
+
 const Activation = React.lazy(() => import('./pages/Activation'));
 const Dashboard = React.lazy(() => import('./pages/Dashboard'));
 const Optimizer = React.lazy(() => import('./pages/Optimizer'));
 const GamingHub = React.lazy(() => import('./pages/GamingHub'));
 const Performance = React.lazy(() => import('./pages/Performance'));
-const SystemManager = React.lazy(() => import('./pages/SystemManager'));
 const Network = React.lazy(() => import('./pages/Network'));
 const NvidiaSettings = React.lazy(() => import('./pages/NvidiaSettings'));
 const InputDelay = React.lazy(() => import('./pages/InputDelay'));
 const Cleanup = React.lazy(() => import('./pages/Cleanup'));
-const Privacy = React.lazy(() => import('./pages/Privacy'));
 const Tools = React.lazy(() => import('./pages/Tools'));
 const Restore = React.lazy(() => import('./pages/Restore'));
 const Logs = React.lazy(() => import('./pages/Logs'));
@@ -41,21 +41,18 @@ class ErrorBoundary extends React.Component<
   render() {
     if (this.state.hasError) {
       return this.props.fallback || (
-        <div className="flex items-center justify-center h-full text-gdim text-sm">
-          Something went wrong. Please navigate to another page and back.
+        <div className="flex flex-col items-center justify-center h-full text-gdim text-sm gap-3">
+          <div className="w-12 h-12 rounded-2xl bg-gdanger/10 flex items-center justify-center">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gdanger">
+              <circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" />
+            </svg>
+          </div>
+          <span>Something went wrong. Navigate to another page and back.</span>
         </div>
       );
     }
     return this.props.children;
   }
-}
-
-function PageSpinner() {
-  return (
-    <div className="flex items-center justify-center h-40">
-      <div className="w-6 h-6 border-2 border-gborder border-t-gaccent rounded-full animate-spin" />
-    </div>
-  );
 }
 
 export default function App() {
@@ -73,9 +70,9 @@ export default function App() {
   const setPage = useAppStore((s) => s.setPage);
   const toast = useAppStore((s) => s.toast);
   const { t } = useI18n();
-  const [checkingLicense, setCheckingLicense] = useState(true);
+  const [checkingLicense, setCheckingLicense] = useState(false);
+  const LIVE_PAGES = new Set(['dashboard', 'performance', 'gaminghub']);
 
-  // Check license on startup
   useEffect(() => {
     (async () => {
       try {
@@ -87,7 +84,6 @@ export default function App() {
           setLicenseActivated(false);
         }
       } catch {
-        // Server unreachable — check local cache
         setLicenseActivated(false);
       } finally {
         setCheckingLicense(false);
@@ -95,7 +91,36 @@ export default function App() {
     })();
   }, [setLicenseActivated, setLicenseData]);
 
-  // Load app data after license is confirmed
+  useEffect(() => {
+    const needsLive = LIVE_PAGES.has(page);
+    if (needsLive) {
+      api.system.startPolling();
+    } else {
+      api.system.stopPolling();
+    }
+    return () => {
+      api.system.stopPolling();
+    };
+  }, [page]);
+
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.hidden || !LIVE_PAGES.has(page)) {
+        api.system.stopPolling();
+      } else {
+        api.system.startPolling();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('focus', onVisibility);
+    window.addEventListener('blur', onVisibility);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('focus', onVisibility);
+      window.removeEventListener('blur', onVisibility);
+    };
+  }, [page]);
+
   useEffect(() => {
     if (!licenseActivated) return;
     (async () => {
@@ -136,35 +161,36 @@ export default function App() {
 
   useEffect(() => {
     const off = api.on('navigate:page', (p: string) => {
-      if (['dashboard', 'optimizer', 'gaminghub', 'performance', 'systemmgr', 'network', 'nvidia', 'inputdelay', 'cleanup', 'privacy', 'tools', 'restore', 'logs', 'settings'].includes(p)) {
+      if (['dashboard', 'optimizer', 'gaminghub', 'performance', 'network', 'nvidia', 'inputdelay', 'cleanup', 'tools', 'restore', 'logs', 'settings'].includes(p)) {
         setPage(p as PageId);
       }
     });
     return off;
   }, [setPage]);
 
-  // Show loading spinner while checking license
-  if (checkingLicense) {
-    return (
-      <div className="h-screen w-screen flex items-center justify-center bg-gbase">
-        <div className="bg-grid absolute inset-0 pointer-events-none opacity-40" />
-        <div className="relative text-center">
-          <div className="w-12 h-12 border-2 border-gborder border-t-gaccent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gdim text-[13px]">{t('activation.checking')}</p>
-        </div>
-      </div>
-    );
-  }
+  useEffect(() => {
+    const onVisibility = () => {
+      const el = document.documentElement;
+      if (document.hidden) {
+        el.classList.add('pause-aurora');
+      } else {
+        el.classList.remove('pause-aurora');
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('blur', () => document.documentElement.classList.add('pause-aurora'));
+    window.addEventListener('focus', () => document.documentElement.classList.remove('pause-aurora'));
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('blur', () => document.documentElement.classList.add('pause-aurora'));
+      window.removeEventListener('focus', () => document.documentElement.classList.remove('pause-aurora'));
+    };
+  }, []);
 
-  // Show activation page if not licensed
   if (!licenseActivated) {
     return (
       <div className="h-screen w-screen bg-gbase overflow-hidden">
-        <Suspense fallback={
-          <div className="flex items-center justify-center h-full">
-            <div className="w-8 h-8 border-2 border-gborder border-t-gaccent rounded-full animate-spin" />
-          </div>
-        }>
+        <Suspense fallback={<ProgressLoader text={t('common.loading')} />}>
           <Activation />
         </Suspense>
         <Toasts />
@@ -178,12 +204,10 @@ export default function App() {
       case 'optimizer': return <Optimizer />;
       case 'gaminghub': return <GamingHub />;
       case 'performance': return <Performance />;
-      case 'systemmgr': return <SystemManager />;
       case 'network': return <Network />;
       case 'nvidia': return <NvidiaSettings />;
       case 'inputdelay': return <InputDelay />;
       case 'cleanup': return <Cleanup />;
-      case 'privacy': return <Privacy />;
       case 'tools': return <Tools />;
       case 'restore': return <Restore />;
       case 'logs': return <Logs />;
@@ -194,22 +218,22 @@ export default function App() {
 
   return (
     <div
-      className={`h-screen w-screen flex bg-gbase text-gtext overflow-hidden bg-aurora ${
+      className={`h-screen w-screen flex bg-gbase text-gtext overflow-hidden bg-aurora noise-overlay ${
         settings && !settings.animations ? 'no-anim' : ''
       } ${settings && !settings.transparency ? 'no-transparency' : ''}`}
     >
-      <div className="bg-grid absolute inset-0 pointer-events-none opacity-60" />
+      <div className="bg-grid absolute inset-0 pointer-events-none opacity-50" />
       <Sidebar />
       <div className="relative flex-1 flex flex-col min-w-0">
         <Topbar />
         <main
           key={page}
-          className={`flex-1 overflow-y-auto px-5 md:px-7 pt-4 pb-8 animate-pageload transition-[padding] duration-200 ${
+          className={`flex-1 overflow-y-auto px-5 md:px-7 pt-5 pb-8 animate-pageload transition-[padding] duration-200 ${
             collapsed ? 'md:pl-4' : ''
           }`}
         >
           <ErrorBoundary>
-            <Suspense fallback={<PageSpinner />}>
+            <Suspense fallback={<ProgressLoader />}>
               {renderPage()}
             </Suspense>
           </ErrorBoundary>

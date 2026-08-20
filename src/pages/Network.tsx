@@ -1,21 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  Wifi,
-  WifiOff,
-  Globe,
-  Route,
-  RefreshCcw,
-  RotateCw,
-  Undo2,
-  ShieldX,
-  ListOrdered,
-  Network as NetworkIcon,
-  Terminal,
-  ExternalLink,
-  Rocket,
-  CheckCircle2,
-  AlertTriangle,
-  Timer,
+  Wifi, WifiOff, Globe, Route, RefreshCcw, RotateCw, Undo2, ShieldX,
+  ListOrdered, Network as NetworkIcon, Terminal, Rocket, CheckCircle2,
+  AlertTriangle, Timer,
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { useI18n } from '../lib/i18n';
@@ -115,21 +102,21 @@ export default function Network() {
 
   return (
     <div className="max-w-[1200px] mx-auto">
-      <PageHeader
-        title={t('network.title')}
-        subtitle={t('network.subtitle')}
-      />
+      <PageHeader title={t('network.title')} subtitle={t('network.subtitle')} />
 
-      {/* Boost de red */}
+      {/* Network Boost Hero */}
       <Card
+        variant="glow"
         title={
           <span className="flex items-center gap-2">
-            <Rocket size={15} className="text-gaccent" />
+            <div className="w-8 h-8 rounded-xl bg-gaccent/10 flex items-center justify-center">
+              <Rocket size={16} className="text-gaccent" />
+            </div>
             {t('network.boost.title')}
           </span>
         }
         subtitle={t('network.boost.subtitle')}
-        className={`relative overflow-hidden mb-4 ${boost?.network.active ? 'border-gaccent/40' : ''}`}
+        className={`relative overflow-hidden mb-4 ${boost?.network.active ? 'border-gaccent/40 shadow-[0_0_30px_-8px_rgba(0,255,136,0.15)]' : ''}`}
       >
         {boost?.network.active && <div className="scanline" />}
         <div className="flex flex-col lg:flex-row lg:items-center gap-5">
@@ -185,12 +172,11 @@ export default function Network() {
         </div>
       </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4 stagger">
+        {/* Connection Info */}
         <Card title={t('network.info.title')} subtitle={t('network.info.subtitle')}>
           {loading ? (
-            <div className="flex justify-center py-8">
-              <Spinner />
-            </div>
+            <div className="flex justify-center py-8"><Spinner /></div>
           ) : info ? (
             <div>
               <div className="flex items-center gap-3 mb-3">
@@ -212,11 +198,10 @@ export default function Network() {
           )}
         </Card>
 
+        {/* Adapters */}
         <Card title={t('network.adapters.title')} subtitle={t('network.adapters.subtitle')}>
           {loading ? (
-            <div className="flex justify-center py-8">
-              <Spinner />
-            </div>
+            <div className="flex justify-center py-8"><Spinner /></div>
           ) : info && info.adapters.length ? (
             <div className="space-y-2">
               {info.adapters.map((a) => (
@@ -243,8 +228,9 @@ export default function Network() {
           )}
         </Card>
 
+        {/* Tools */}
         <Card title={t('network.tools.title')} subtitle={t('network.tools.subtitle')}>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-2 stagger">
             <Button variant="secondary" size="sm" icon={<Globe size={13} />} loading={busyTool === 'ping'} onClick={() => runTool('ping', () => api.network.run('ping', host))}>
               {t('network.tools.ping')}
             </Button>
@@ -276,7 +262,7 @@ export default function Network() {
               value={host}
               onChange={(e) => setHost(e.target.value)}
               placeholder={t('network.tools.hostPlaceholder')}
-              className="w-full bg-gbase3 border border-gborder rounded-lg px-3 py-2 text-[12.5px] font-mono text-gtext placeholder:text-gdim focus:border-gaccent/50 focus:outline-none"
+              className="w-full bg-gbase3 border border-gborder rounded-lg px-3 py-2 text-[12.5px] font-mono text-gtext placeholder:text-gdim focus:border-gaccent/50 focus:outline-none transition-colors"
             />
           </div>
         </Card>
@@ -284,7 +270,12 @@ export default function Network() {
 
       {/* Console */}
       <Card
-        title={t('network.console.title')}
+        title={
+          <span className="flex items-center gap-2">
+            <Terminal size={14} className="text-gaccent" />
+            {t('network.console.title')}
+          </span>
+        }
         subtitle={t('network.console.subtitle')}
         actions={
           <Button variant="ghost" size="sm" icon={<Terminal size={13} />} onClick={() => setLines([])}>
@@ -320,8 +311,7 @@ export default function Network() {
             {t('network.reset.willRun')} <code className="text-gtext">netsh winsock reset</code> {t('network.reset.and')}{' '}
             <code className="text-gtext">netsh int ip reset</code>
             {t('network.reset.resetsConfig')}
-            <br />
-            <br />
+            <br /><br />
             <strong className="text-gwarn">{t('network.reset.requiresAdmin')}</strong>{' '}
             {t('network.reset.effectsNote')}
           </>
@@ -330,8 +320,14 @@ export default function Network() {
         onConfirm={async () => {
           setConfirmReset(false);
           setBusyTool('reset');
-          await api.network.reset().catch(() => undefined);
+          const r = await api.network.reset().catch(() => null);
           setBusyTool(null);
+          if (r) {
+            toast('success', t('network.reset.success'), t('network.reset.successDesc'));
+            loadInfo();
+          } else {
+            toast('error', t('common.error'), t('network.commError'));
+          }
         }}
       />
     </div>

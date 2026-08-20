@@ -1,5 +1,3 @@
-import { Area, AreaChart, ResponsiveContainer, YAxis } from 'recharts';
-
 interface Props {
   data: number[];
   color?: string;
@@ -9,29 +7,33 @@ interface Props {
 }
 
 export function LiveChart({ data, color = '#00ff88', height = 80, min = 0, max = 100 }: Props) {
-  const points = data.map((v, i) => ({ i, v }));
+  if (!data || data.length < 2) return null;
+  const width = 100;
+  const padded = Math.max(min, Math.min(max, Math.max(...data)));
+  const range = padded - min > 0 ? padded - min : 1;
+  const h = height;
+  const pad = 2;
+  const plotH = Math.max(h - pad * 2, 10);
+
+  const pts = data.map((v, i) => {
+    const x = (i / (data.length - 1)) * width;
+    const y = pad + plotH - ((Math.max(min, Math.min(max, v)) - min) / range) * plotH;
+    return `${x},${y + 0.5}`;
+  });
+
+  const linePath = `M${pts.join(' L')}`;
+  const areaPath = `${linePath} L${width},${h - pad} L0,${h - pad} Z`;
+
   return (
-    <div style={{ width: '100%', height }}>
-      <ResponsiveContainer>
-        <AreaChart data={points} margin={{ top: 2, right: 0, left: 0, bottom: 0 }}>
-          <defs>
-            <linearGradient id={`grad-${color.replace('#', '')}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={color} stopOpacity={0.35} />
-              <stop offset="100%" stopColor={color} stopOpacity={0.02} />
-            </linearGradient>
-          </defs>
-          <YAxis hide domain={[min, max]} />
-          <Area
-            type="monotone"
-            dataKey="v"
-            stroke={color}
-            strokeWidth={1.8}
-            fill={`url(#grad-${color.replace('#', '')})`}
-            isAnimationActive={false}
-            dot={false}
-          />
-        </AreaChart>
-      </ResponsiveContainer>
-    </div>
+    <svg width="100%" height={h} viewBox={`0 0 ${width} ${h}`} preserveAspectRatio="none" className="w-full">
+      <defs>
+        <linearGradient id={`lc-${color.replace('#', '')}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity={0.35} />
+          <stop offset="100%" stopColor={color} stopOpacity={0.02} />
+        </linearGradient>
+      </defs>
+      <path d={areaPath} fill={`url(#lc-${color.replace('#', '')})`} />
+      <path d={linePath} fill="none" stroke={color} strokeWidth={1.8} strokeLinejoin="round" strokeLinecap="round" />
+    </svg>
   );
 }

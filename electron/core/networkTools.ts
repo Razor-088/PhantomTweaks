@@ -32,55 +32,69 @@ export async function getNetInfo(): Promise<NetInfo> {
   let dns: string[] = [];
   let adapters: NetInfo['adapters'] = [];
 
-  const gw = await runPSJson<{ NextHop: string }>(
-    `$r = Get-NetRoute -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue | Select-Object -First 1; if ($r) { [PSCustomObject]@{ NextHop = $r.NextHop } }`
+  // Single batched PowerShell query for gateway, DNS, adapters, and TCP connections
+  const result = await runPSJson<{
+    gateway: string | null;
+    dns: string[];
+    adapters: Array<{ Name: string; Status: string; LinkSpeed: string; MacAddress: string | null; IPAddress: string[] }>;
+    connections: number;
+  }>(
+    `$ErrorActionPreference='SilentlyContinue';` +
+    `$gw = (Get-NetRoute -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue | Select-Object -First 1).NextHop;` +
+    `$dnsServers = Get-DnsClientServerAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object { $_.ServerAddresses } | Select-Object -First 3 ServerAddresses;` +
+    `$dns = @();` +
+    `if ($dnsServers) { $dns = $dnsServers.ServerAddresses };` +
+    `$adapters = Get-NetAdapter -ErrorAction SilentlyContinue | Select-Object Name,Status,LinkSpeed,MacAddress,@{n='IPAddress';e={(Get-NetIPAddress -InterfaceIndex $_.ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue).IPAddress}};` +
+    `$connCount = (Get-NetTCPConnection -ErrorAction SilentlyContinue | Measure-Object).Count;` +
+    `[PSCustomObject]@{ gateway=$gw; dns=$dns; adapters=$adapters; connections=$connCount }`
   );
-  gateway = gw?.NextHop || null;
 
-  const dnsR = await runPSJson<Array<{ ServerAddresses: string[] }>>(
-    `Get-DnsClientServerAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object { $_.ServerAddresses } | Select-Object -First 3 ServerAddresses`
-  );
-  if (dnsR) {
-    const arr = Array.isArray(dnsR) ? dnsR : [dnsR];
-    dns = arr.flatMap((d) => d.ServerAddresses || []);
+  if (result) {
+    gateway = result.gateway || null;
+    dns = result.dns || [];
+    if (result.adapters) {
+      const arr = Array.isArray(result.adapters) ? result.adapters : [result.adapters];
+      adapters = arr.map((a) => {
+        let speedMbps: number | null = null;
+        const speedStr = String(a.LinkSpeed || '');
+        const speedMatch = speedStr.match(/([\d.]+)\s*(Gbps|Mbps)/i);
+        if (speedMatch) {
+          speedMbps = speedMatch[2].toLowerCase() === 'gbps' ? Math.round(Number(speedMatch[1]) * 1000) : Math.round(Number(speedMatch[1]));
+        }
+        return {
+          name: a.Name || '',
+          status: a.Status || '',
+          speedMbps,
+          mac: a.MacAddress || null,
+          ipv4: (a.IPAddress || [])[0] || null,
+        };
+      });
+    }
+    const connections = result.connections != null ? Number(result.connections) : 0;
+
+    const status = primary.address ? 'connected' : 'disconnected';
+    return {
+      status,
+      interfaceName: primary.name,
+      ip: primary.address,
+      gateway,
+      dns,
+      mac: primary.mac,
+      adapters,
+      connections,
+    };
   }
-
-  const ad = await runPSJson<Array<{ Name: string; Status: string; LinkSpeed: string; MacAddress: string; IPAddress: string[] }>>(
-    `Get-NetAdapter -ErrorAction SilentlyContinue | Select-Object Name,Status,LinkSpeed,MacAddress,@{n='IPAddress';e={(Get-NetIPAddress -InterfaceIndex $_.ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue).IPAddress}}`
-  );
-  if (ad) {
-    const arr = Array.isArray(ad) ? ad : [ad];
-    adapters = arr.map((a) => {
-      const speedMatch = String(a.LinkSpeed || '').match(/([\d.]+)\s*(Gbps|Mbps)/i);
-      let speedMbps: number | null = null;
-      if (speedMatch) {
-        speedMbps = speedMatch[2].toLowerCase() === 'gbps' ? Math.round(Number(speedMatch[1]) * 1000) : Math.round(Number(speedMatch[1]));
-      }
-      return {
-        name: a.Name || '',
-        status: a.Status || '',
-        speedMbps,
-        mac: a.MacAddress || null,
-        ipv4: (a.IPAddress || [])[0] || null,
-      };
-    });
-  }
-
-  const connR = await runPSJson<number>(
-    `(Get-NetTCPConnection -ErrorAction SilentlyContinue | Measure-Object).Count`
-  );
-  const connections = connR != null ? Number(connR) : 0;
 
   const status = primary.address ? 'connected' : 'disconnected';
   return {
     status,
     interfaceName: primary.name,
     ip: primary.address,
-    gateway,
+    gateway: gateway || null,
     dns,
     mac: primary.mac,
     adapters,
-    connections,
+    connections: 0,
   };
 }
 

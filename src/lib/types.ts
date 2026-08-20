@@ -264,6 +264,18 @@ export interface BoostStatus {
     pingBefore: number | null;
     pingAfter: number | null;
   };
+  snapshot: {
+    cpuPct: number | null;
+    cpuTemp: number | null;
+    ramPct: number;
+    ramUsedGb: number;
+    ramTotalGb: number;
+    gpuPct: number | null;
+    gpuTemp: number | null;
+    gpuUsedMb: number | null;
+    gpuTotalMb: number | null;
+    powerPlan: string | null;
+  } | null;
 }
 
 export interface GamingModeResult {
@@ -342,7 +354,7 @@ export interface InputDelayItem {
   before: string;
   after: string;
   applied: boolean;
-  category: 'display' | 'power' | 'mouse' | 'system';
+  category: 'display' | 'power' | 'mouse' | 'system' | 'network';
 }
 
 export interface GameProfile {
@@ -363,13 +375,16 @@ export interface NvidiaGpu {
   name: string;
   driverVersion: string;
   vramMb: number;
+  vramUsedMb: number | null;
   temperature: number | null;
   utilizationPct: number | null;
   powerDrawW: number | null;
   powerLimitW: number | null;
   clockMhz: number | null;
   memoryClockMhz: number | null;
+  fanSpeedPct: number | null;
   pciBus: number;
+  pcieGen: number | null;
   index: number;
 }
 
@@ -412,7 +427,7 @@ export interface DetectedGame {
   id: string;
   name: string;
   exe: string | null;
-  platform: 'steam' | 'epic' | 'riot' | 'xbox' | 'gog' | 'other';
+  platform: 'steam' | 'epic' | 'riot' | 'xbox' | 'gog' | 'battle.net' | 'other';
   installPath: string | null;
   running: boolean;
   pid: number | null;

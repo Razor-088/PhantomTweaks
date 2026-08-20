@@ -13,16 +13,25 @@ export function Toggle({ checked, onChange, disabled, label }: Props) {
       aria-checked={checked}
       disabled={disabled}
       onClick={() => onChange(!checked)}
-      className={`relative inline-flex items-center rounded-full transition-colors duration-200 focus:outline-none disabled:opacity-50 ${
-        checked ? 'bg-gaccent/80' : 'bg-gbase3 border border-gborder2'
+      className={`relative inline-flex items-center rounded-full transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] focus:outline-none disabled:opacity-40 ${
+        checked
+          ? 'bg-gaccent/80 shadow-[0_0_16px_rgba(0,255,136,0.25),0_0_4px_rgba(0,255,136,0.4)]'
+          : 'bg-gbase3 border border-gborder2/60 hover:border-gborder2'
       }`}
-      style={{ height: 22, width: 40 }}
+      style={{ height: 24, width: 44 }}
     >
       <span
-        className={`inline-block rounded-full transition-transform duration-200 ${
-          checked ? 'bg-gbase' : 'bg-gmuted'
+        className={`inline-block rounded-full transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] shadow-sm ${
+          checked
+            ? 'bg-gbase shadow-[0_0_8px_rgba(0,255,136,0.4)]'
+            : 'bg-gdim'
         }`}
-        style={{ height: 16, width: 16, marginLeft: 3, transform: checked ? 'translateX(18px)' : 'translateX(0)' }}
+        style={{
+          height: 18,
+          width: 18,
+          marginLeft: 3,
+          transform: checked ? 'translateX(20px)' : 'translateX(0)',
+        }}
       />
       {label && <span className="ml-3 text-sm text-gmuted">{label}</span>}
     </button>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Settings as SettingsIcon, Palette, SlidersHorizontal, Info, Bell, ShieldCheck, Copy, Check } from 'lucide-react';
+import { Settings as SettingsIcon, Palette, SlidersHorizontal, Info, Bell, ShieldCheck, Copy, Check, Cpu } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { Card } from '../components/ui/Card';
 import { PageHeader } from '../components/ui/PageHeader';
@@ -10,38 +10,29 @@ import { useI18n } from '../lib/i18n';
 import type { AppSettings } from '../lib/types';
 
 function Section({
-  icon: Icon,
-  titleKey,
-  children,
+  icon: Icon, titleKey, children,
 }: {
-  icon: typeof Palette;
-  titleKey: string;
-  children: React.ReactNode;
+  icon: typeof Palette; titleKey: string; children: React.ReactNode;
 }) {
   const { t } = useI18n();
   return (
     <Card
+      variant="glow"
       title={
         <span className="flex items-center gap-2">
-          <Icon size={14} className="text-gaccent" />
+          <div className="w-7 h-7 rounded-lg bg-gaccent/10 flex items-center justify-center">
+            <Icon size={14} className="text-gaccent" />
+          </div>
           {t(titleKey)}
         </span>
       }
     >
-      <div className="space-y-1">{children}</div>
+      <div className="space-y-0.5">{children}</div>
     </Card>
   );
 }
 
-function Row({
-  label,
-  desc,
-  children,
-}: {
-  label: string;
-  desc?: string;
-  children: React.ReactNode;
-}) {
+function Row({ label, desc, children }: { label: string; desc?: string; children: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-4 py-2.5 border-b border-gborder/30 last:border-0">
       <div className="min-w-0">
@@ -49,6 +40,30 @@ function Row({
         {desc && <div className="text-[11.5px] text-gdim mt-0.5">{desc}</div>}
       </div>
       <div className="shrink-0">{children}</div>
+    </div>
+  );
+}
+
+function SegmentedControl<T extends string>({
+  value, options, onChange,
+}: {
+  value: T; options: Array<{ value: string; label: string }>; onChange: (v: T) => void;
+}) {
+  return (
+    <div className="flex rounded-lg overflow-hidden border border-gborder">
+      {options.map((o) => (
+        <button
+          key={o.value}
+          onClick={() => onChange(o.value as T)}
+          className={`px-3 py-1.5 text-[12px] transition-all duration-200 ${
+            value === o.value
+              ? 'bg-gaccent text-gbase font-semibold shadow-[0_0_8px_rgba(0,255,136,0.2)]'
+              : 'text-gmuted hover:text-gtext hover:bg-gpanel2'
+          }`}
+        >
+          {o.label}
+        </button>
+      ))}
     </div>
   );
 }
@@ -68,10 +83,7 @@ export default function Settings() {
   const [copiedKey, setCopiedKey] = useState(false);
 
   useEffect(() => {
-    api.app
-      .getStartup()
-      .then((enabled) => setStartupEnabled(enabled))
-      .catch(() => setStartupEnabled(false));
+    api.app.getStartup().then(setStartupEnabled).catch(() => setStartupEnabled(false));
   }, []);
 
   const save = async (patch: Partial<AppSettings>) => {
@@ -101,29 +113,8 @@ export default function Settings() {
   };
 
   if (!settings) {
-    return (
-      <div className="flex justify-center py-24">
-        <Spinner />
-      </div>
-    );
+    return <div className="flex justify-center py-24"><Spinner /></div>;
   }
-
-  const langOptions = [
-    { value: 'es', label: 'Español' },
-    { value: 'en', label: 'English' },
-  ];
-
-  const themeOptions = [
-    { value: 'system', label: t('settings.themeSystem') },
-    { value: 'dark', label: t('settings.themeDark') },
-    { value: 'light', label: t('settings.themeLight') },
-  ];
-
-  const levelOptions = [
-    { value: 'basic', label: t('settings.infoLevelBasic') },
-    { value: 'detailed', label: t('settings.infoLevelDetailed') },
-    { value: 'advanced', label: t('settings.infoLevelAdvanced') },
-  ];
 
   const changeLicense = async () => {
     setChangingLicense(true);
@@ -150,14 +141,10 @@ export default function Settings() {
     }
   };
 
-  const licenseStatusKey = licenseData?.status === 'active'
-    ? 'settings.licenseActive'
-    : licenseData?.status === 'expired'
-    ? 'settings.licenseExpired'
-    : licenseData?.status === 'revoked'
-    ? 'settings.licenseRevoked'
-    : licenseData?.status === 'suspended'
-    ? 'settings.licenseSuspended'
+  const licenseStatusKey = licenseData?.status === 'active' ? 'settings.licenseActive'
+    : licenseData?.status === 'expired' ? 'settings.licenseExpired'
+    : licenseData?.status === 'revoked' ? 'settings.licenseRevoked'
+    : licenseData?.status === 'suspended' ? 'settings.licenseSuspended'
     : 'activation.error';
 
   return (
@@ -167,34 +154,22 @@ export default function Settings() {
         subtitle={t('settings.subtitle')}
         actions={
           <span className="text-[11px] text-gdim flex items-center gap-1.5">
-            {t('settings.version')} {appInfo?.version ?? '…'}
+            <Cpu size={12} /> {t('settings.version')} {appInfo?.version ?? '…'}
           </span>
         }
       />
 
-      <div className="space-y-4">
+      <div className="space-y-4 stagger">
         <Section icon={SettingsIcon} titleKey="settings.general">
           <Row label={t('settings.language')} desc={t('settings.languageDesc')}>
-            <div className="flex rounded-lg overflow-hidden border border-gborder">
-              {langOptions.map((o) => (
-                <button
-                  key={o.value}
-                  onClick={() => save({ language: o.value as 'es' | 'en' })}
-                  className={`px-3 py-1.5 text-[12px] transition-colors ${
-                    settings.language === o.value ? 'bg-gaccent text-gbase font-semibold' : 'text-gmuted hover:text-gtext'
-                  }`}
-                >
-                  {o.label}
-                </button>
-              ))}
-            </div>
+            <SegmentedControl
+              value={settings.language}
+              options={[{ value: 'es', label: 'Español' }, { value: 'en', label: 'English' }]}
+              onChange={(v) => save({ language: v })}
+            />
           </Row>
           <Row label={t('settings.runOnStartup')} desc={t('settings.runOnStartupDesc')}>
-            {startupEnabled === null ? (
-              <Spinner size={14} />
-            ) : (
-              <Toggle checked={startupEnabled} onChange={toggleStartup} />
-            )}
+            {startupEnabled === null ? <Spinner size={14} /> : <Toggle checked={startupEnabled} onChange={toggleStartup} />}
           </Row>
           <Row label={t('settings.minimizeToTray')} desc={t('settings.minimizeToTrayDesc')}>
             <Toggle checked={settings.minimizeToTray} onChange={(v) => save({ minimizeToTray: v })} />
@@ -206,19 +181,15 @@ export default function Settings() {
 
         <Section icon={Palette} titleKey="settings.appearance">
           <Row label={t('settings.theme')} desc={t('settings.themeDesc')}>
-            <div className="flex rounded-lg overflow-hidden border border-gborder">
-              {themeOptions.map((o) => (
-                <button
-                  key={o.value}
-                  onClick={() => save({ theme: o.value as AppSettings['theme'] })}
-                  className={`px-3 py-1.5 text-[12px] transition-colors ${
-                    settings.theme === o.value ? 'bg-gaccent text-gbase font-semibold' : 'text-gmuted hover:text-gtext'
-                  }`}
-                >
-                  {o.label}
-                </button>
-              ))}
-            </div>
+            <SegmentedControl
+              value={settings.theme}
+              options={[
+                { value: 'system', label: t('settings.themeSystem') },
+                { value: 'dark', label: t('settings.themeDark') },
+                { value: 'light', label: t('settings.themeLight') },
+              ]}
+              onChange={(v) => save({ theme: v })}
+            />
           </Row>
           <Row label={t('settings.animations')} desc={t('settings.animationsDesc')}>
             <Toggle checked={settings.animations} onChange={(v) => save({ animations: v })} />
@@ -230,19 +201,15 @@ export default function Settings() {
 
         <Section icon={SlidersHorizontal} titleKey="settings.optimization">
           <Row label={t('settings.infoLevel')} desc={t('settings.infoLevelDesc')}>
-            <div className="flex rounded-lg overflow-hidden border border-gborder">
-              {levelOptions.map((o) => (
-                <button
-                  key={o.value}
-                  onClick={() => save({ infoLevel: o.value as AppSettings['infoLevel'] })}
-                  className={`px-3 py-1.5 text-[12px] transition-colors ${
-                    settings.infoLevel === o.value ? 'bg-gaccent text-gbase font-semibold' : 'text-gmuted hover:text-gtext'
-                  }`}
-                >
-                  {o.label}
-                </button>
-              ))}
-            </div>
+            <SegmentedControl
+              value={settings.infoLevel}
+              options={[
+                { value: 'basic', label: t('settings.infoLevelBasic') },
+                { value: 'detailed', label: t('settings.infoLevelDetailed') },
+                { value: 'advanced', label: t('settings.infoLevelAdvanced') },
+              ]}
+              onChange={(v) => save({ infoLevel: v })}
+            />
           </Row>
           <Row label={t('settings.confirmChanges')} desc={t('settings.confirmChangesDesc')}>
             <Toggle checked={settings.confirmChanges} onChange={(v) => save({ confirmChanges: v })} />
@@ -290,9 +257,7 @@ export default function Settings() {
               </Row>
               <Row label={t('settings.licenseExpires')}>
                 <span className="text-[12.5px] font-mono text-gmuted">
-                  {licenseData.expiresAt
-                    ? new Date(licenseData.expiresAt).toLocaleDateString()
-                    : t('settings.licenseNever')}
+                  {licenseData.expiresAt ? new Date(licenseData.expiresAt).toLocaleDateString() : t('settings.licenseNever')}
                 </span>
               </Row>
             </>

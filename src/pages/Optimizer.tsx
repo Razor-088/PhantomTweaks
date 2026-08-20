@@ -65,6 +65,7 @@ export default function Optimizer() {
       const r = await api.tweaks.apply(id);
       const name = tweaks.find((tw) => tw.id === id)?.name ?? 'Tweak';
       if (r.applied) {
+        setTweaks((prev) => prev.map((tw) => (tw.id === id ? { ...tw, applied: true } : tw)));
         toast('success', t('optimizer.applied'), name);
       } else {
         toast('error', t('optimizer.applyError'), r.message);
@@ -83,6 +84,7 @@ export default function Optimizer() {
       const r = await api.tweaks.revert(id);
       const name = tweaks.find((tw) => tw.id === id)?.name ?? 'Tweak';
       if (r.reverted) {
+        setTweaks((prev) => prev.map((tw) => (tw.id === id ? { ...tw, applied: false } : tw)));
         toast('success', t('optimizer.reverted'), name);
       } else {
         toast('info', t('optimizer.noChanges'), r.message);
