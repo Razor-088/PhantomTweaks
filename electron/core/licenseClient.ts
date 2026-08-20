@@ -38,16 +38,25 @@ function getLicensePath(): string {
   return dataFile(LICENSE_FILE);
 }
 
+let localLicenseCache: LicenseData | null | undefined = undefined;
+
 function readLocalLicense(): LicenseData | null {
+  if (localLicenseCache !== undefined) return localLicenseCache;
   try {
     const raw = fs.readFileSync(getLicensePath(), 'utf-8');
-    return JSON.parse(raw);
+    localLicenseCache = JSON.parse(raw);
   } catch {
-    return null;
+    localLicenseCache = null;
   }
+  return localLicenseCache ?? null;
+}
+
+function invalidateLicenseCache() {
+  localLicenseCache = undefined;
 }
 
 function writeLocalLicense(data: LicenseData | null) {
+  invalidateLicenseCache();
   try {
     if (data) {
       fs.writeFileSync(ensureFile(LICENSE_FILE), JSON.stringify(data, null, 2), 'utf-8');

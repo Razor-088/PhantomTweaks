@@ -6,20 +6,32 @@ export function useHistory(size: number) {
 
   const push = useCallback(
     (v: number) => {
-      const next = [...ref.current, v].slice(-size);
-      ref.current = next;
-      setData(next);
+      const arr = ref.current;
+      if (arr.length < size) {
+        arr.push(v);
+      } else {
+        arr.copyWithin(0, 1);
+        arr[arr.length - 1] = v;
+      }
+      ref.current = arr;
+      setData([...arr]);
     },
     [size]
   );
 
   const pushBatch = useCallback(
     (values: number[]) => {
-      let next = ref.current;
-      for (const v of values) next = [...next, v];
-      next = next.slice(-size);
-      ref.current = next;
-      setData(next);
+      const arr = ref.current;
+      for (const v of values) {
+        if (arr.length < size) {
+          arr.push(v);
+        } else {
+          arr.copyWithin(0, 1);
+          arr[arr.length - 1] = v;
+        }
+      }
+      ref.current = arr;
+      setData([...arr]);
     },
     [size]
   );

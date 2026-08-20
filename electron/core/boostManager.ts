@@ -5,7 +5,7 @@ import { regQuery } from './registry';
 import { addChange, revertChange, applyRegistryChange, ChangeCategory } from './restoreManager';
 import { getLatency } from './networkTools';
 import { log } from './logging';
-import { getActiveSchemeGuid } from '../shared/powercfg';
+import { getActiveSchemeGuid, setPowerPlan } from '../shared/powercfg';
 import { POWER_GUIDS } from '../shared/constants';
 import { getMonitorSnapshot } from './systemInfo';
 import { emptyStandbyList } from './windowsTweaks';
@@ -59,18 +59,23 @@ interface Session {
   network?: NetworkSession;
 }
 
+let sessionCache: Session | null = null;
+
 function readSession(): Session {
+  if (sessionCache) return sessionCache;
   try {
-    return JSON.parse(fs.readFileSync(dataFile('boost-session.json'), 'utf-8')) as Session;
+    sessionCache = JSON.parse(fs.readFileSync(dataFile('boost-session.json'), 'utf-8')) as Session;
   } catch {
-    return {};
+    sessionCache = {};
   }
+  return sessionCache!;
 }
 
 let sessionWriteTimer: NodeJS.Timeout | null = null;
 let pendingSession: Session | null = null;
 
 function writeSession(s: Session) {
+  sessionCache = s;
   pendingSession = s;
   if (sessionWriteTimer) return;
   sessionWriteTimer = setTimeout(() => {
@@ -171,11 +176,6 @@ async function boostRegistry(opts: {
     false
   );
   return rec.id;
-}
-
-async function setPowerPlan(targetGuid: string): Promise<{ ok: boolean; message: string }> {
-  const r = await runPS(`powercfg -setactive ${targetGuid}`, 20000);
-  return { ok: r.code === 0, message: r.stderr || 'Plan de energía actualizado.' };
 }
 
 /** Detects the game process in the foreground. Returns pid, name, title or null. */

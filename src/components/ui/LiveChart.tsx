@@ -9,7 +9,9 @@ interface Props {
 export function LiveChart({ data, color = '#00ff88', height = 80, min = 0, max = 100 }: Props) {
   if (!data || data.length < 2) return null;
   const width = 100;
-  const padded = Math.max(min, Math.min(max, Math.max(...data)));
+  let dataMax = min;
+  for (let i = 0; i < data.length; i++) { if (data[i] > dataMax) dataMax = data[i]; }
+  const padded = Math.max(min, Math.min(max, dataMax));
   const range = padded - min > 0 ? padded - min : 1;
   const h = height;
   const pad = 2;

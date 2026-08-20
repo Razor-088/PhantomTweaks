@@ -66,6 +66,8 @@ function scheduleWrite() {
   }, 200);
 }
 
+const MAX_HISTORY = 500;
+
 export function addChange(rec: Omit<ChangeRecord, 'id' | 'date' | 'reverted'>): ChangeRecord {
   const full: ChangeRecord = {
     ...rec,
@@ -75,6 +77,7 @@ export function addChange(rec: Omit<ChangeRecord, 'id' | 'date' | 'reverted'>): 
   };
   const list = readChanges();
   list.unshift(full);
+  if (list.length > MAX_HISTORY) list.length = MAX_HISTORY;
   cache = list;
   scheduleWrite();
   log('SYSTEM', 'restore', `Cambio registrado: ${rec.name}`);

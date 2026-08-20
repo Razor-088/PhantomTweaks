@@ -1,4 +1,4 @@
-import React, { Suspense, useEffect, useState, useCallback, useMemo } from 'react';
+import React, { Suspense, useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Topbar } from './components/Topbar';
 import { Toasts } from './components/ui/Toasts';
@@ -7,7 +7,7 @@ import { useAppStore } from './store/useAppStore';
 import { api } from './lib/api';
 import { useI18n } from './lib/i18n';
 import type { PageId } from './store/useAppStore';
-import type { AppSettings, MonitorSnapshot } from './lib/types';
+import type { MonitorSnapshot } from './lib/types';
 
 import { ProgressLoader } from './components/ui/Spinner';
 
@@ -75,6 +75,8 @@ class ErrorBoundary extends React.Component<
 export default function App() {
   const page = useAppStore((s) => s.page);
   const collapsed = useAppStore((s) => s.sidebarCollapsed);
+  const animations = useAppStore((s) => s.settings?.animations);
+  const transparency = useAppStore((s) => s.settings?.transparency);
   const settings = useAppStore((s) => s.settings);
   const licenseActivated = useAppStore((s) => s.licenseActivated);
   const setSnapshot = useAppStore((s) => s.setSnapshot);
@@ -107,10 +109,13 @@ export default function App() {
     })();
   }, [setLicenseActivated, setLicenseData]);
 
+  const pageRef = useRef(page);
+  pageRef.current = page;
+
   useEffect(() => {
     const handleVisibilityChange = () => {
       const el = document.documentElement;
-      if (document.hidden || !LIVE_PAGES.has(page)) {
+      if (document.hidden || !LIVE_PAGES.has(pageRef.current)) {
         api.system.stopPolling();
         el.classList.add('pause-aurora');
       } else {
@@ -130,7 +135,7 @@ export default function App() {
       window.removeEventListener('focus', onFocus);
       api.system.stopPolling();
     };
-  }, [page]);
+  }, []);
 
   useEffect(() => {
     if (!licenseActivated) return;
@@ -166,8 +171,8 @@ export default function App() {
   }, [settings]);
 
   const onSnapshot = useCallback((snap: MonitorSnapshot) => {
-    if (LIVE_PAGES.has(page)) setSnapshot(snap);
-  }, [page, setSnapshot]);
+    if (LIVE_PAGES.has(pageRef.current)) setSnapshot(snap);
+  }, [setSnapshot]);
 
   useEffect(() => {
     const off = api.on('monitor:snapshot', onSnapshot);
@@ -200,8 +205,8 @@ export default function App() {
   return (
     <div
       className={`h-screen w-screen flex bg-gbase text-gtext overflow-hidden bg-aurora noise-overlay ${
-        settings && !settings.animations ? 'no-anim' : ''
-      } ${settings && !settings.transparency ? 'no-transparency' : ''}`}
+        animations === false ? 'no-anim' : ''
+      } ${transparency === false ? 'no-transparency' : ''}`}
     >
       <div className="bg-grid absolute inset-0 pointer-events-none opacity-50" />
       <Sidebar />

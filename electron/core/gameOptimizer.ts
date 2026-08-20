@@ -151,12 +151,16 @@ function loadOptimizations(): GameOptimization[] {
   return optCache!;
 }
 
+let customGamesCache: DetectedGame[] | null = null;
+
 export function loadCustomGames(): DetectedGame[] {
+  if (customGamesCache) return customGamesCache;
   try {
-    return JSON.parse(fs.readFileSync(dataFile(CUSTOM_GAMES_FILE), 'utf-8')) as DetectedGame[];
+    customGamesCache = JSON.parse(fs.readFileSync(dataFile(CUSTOM_GAMES_FILE), 'utf-8')) as DetectedGame[];
   } catch {
-    return [];
+    customGamesCache = [];
   }
+  return customGamesCache!;
 }
 
 export function saveCustomGame(game: DetectedGame): { ok: boolean } {
@@ -164,12 +168,14 @@ export function saveCustomGame(game: DetectedGame): { ok: boolean } {
   const idx = list.findIndex(g => g.id === game.id);
   if (idx >= 0) list[idx] = game;
   else list.push(game);
+  customGamesCache = list;
   fs.writeFileSync(dataFile(CUSTOM_GAMES_FILE), JSON.stringify(list, null, 2));
   return { ok: true };
 }
 
 export function deleteCustomGame(id: string): { ok: boolean } {
   const list = loadCustomGames().filter(g => g.id !== id);
+  customGamesCache = list;
   fs.writeFileSync(dataFile(CUSTOM_GAMES_FILE), JSON.stringify(list, null, 2));
   return { ok: true };
 }
@@ -378,7 +384,14 @@ async function findInstalledGames(): Promise<DetectedGame[]> {
   return found;
 }
 
+let installedGamesCache: DetectedGame[] | null = null;
+let installedGamesCacheTime = 0;
+const INSTALLED_GAMES_CACHE_TTL = 30_000;
+
 export async function detectInstalledGames(): Promise<DetectedGame[]> {
+  const now = Date.now();
+  if (installedGamesCache && now - installedGamesCacheTime < INSTALLED_GAMES_CACHE_TTL) return installedGamesCache;
+
   let installed = await findInstalledGames();
 
   const custom = loadCustomGames();
@@ -417,12 +430,32 @@ export async function detectInstalledGames(): Promise<DetectedGame[]> {
   }
 
   log('INFO', 'games', `Juegos detectados: ${installed.length} instalados, ${running.length} procesos activos`);
+  installedGamesCache = installed;
+  installedGamesCacheTime = Date.now();
   return installed;
 }
 
 export async function detectRunningGames(): Promise<DetectedGame[]> {
   const installed = await detectInstalledGames();
-  return installed.filter(g => g.running);
+  const runningPs = await runPS(`
+    $procs = Get-Process | Where-Object { $_.ProcessName -ne 'Idle' } | Select-Object Id, ProcessName
+    if ($procs) { $procs | ConvertTo-Json -Depth 3 -Compress } else { '[]' }
+  `, 15000);
+  let running: Array<{ Id: number; ProcessName: string }> = [];
+  try {
+    const parsed = JSON.parse(runningPs.stdout.trim());
+    running = Array.isArray(parsed) ? parsed : (parsed ? [parsed] : []);
+  } catch { /* ignore */ }
+  const runningMap = new Map<string, number>();
+  for (const r of running) runningMap.set(r.ProcessName.toLowerCase(), r.Id);
+  const result: DetectedGame[] = [];
+  for (const g of installed) {
+    if (!g.exe) continue;
+    const exeName = g.exe.replace(/\.exe$/i, '').toLowerCase();
+    const pid = runningMap.get(exeName);
+    if (pid != null) result.push({ ...g, running: true, pid });
+  }
+  return result;
 }
 
 export function listGameOptimizations(): GameOptimization[] {

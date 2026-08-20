@@ -162,7 +162,7 @@ export function Sidebar() {
       {/* Logo */}
       <div className="flex items-center gap-3 px-4 h-[68px] border-b border-gborder/40 shrink-0 relative">
         <div className="relative flex items-center justify-center w-11 h-11 rounded-2xl bg-gaccent-dim border border-gaccent/20 shadow-[0_0_24px_rgba(0,255,136,0.2),inset_0_1px_0_rgba(255,255,255,0.08)]">
-          <div className="absolute inset-0 rounded-2xl bg-gaccent/5 animate-glow" />
+          <div className="absolute inset-0 rounded-2xl bg-gaccent/5 animate-glow shadow-[0_0_16px_rgba(0,255,136,0.3)]" />
           <Logo size={26} />
         </div>
         {!collapsed && (

@@ -331,6 +331,11 @@ export default function GamingHub() {
   const runningGames = useMemo(() => games.filter(g => g.running), [games]);
   const installedGames = useMemo(() => games.filter(g => !g.running), [games]);
   const platforms = useMemo(() => [...new Set(games.map(g => g.platform))], [games]);
+  const optByGameId = useMemo(() => {
+    const m = new Map<string, GameOptimization>();
+    for (const o of optimizations) m.set(o.gameId, o);
+    return m;
+  }, [optimizations]);
 
   const filteredInstalled = useMemo(() => installedGames.filter(g => {
     if (search && !g.name.toLowerCase().includes(search.toLowerCase())) return false;
@@ -508,7 +513,7 @@ export default function GamingHub() {
               </h3>
               <div className="space-y-2">
                 {filteredRunning.map(game => {
-                  const opt = optimizations.find(o => o.gameId === game.id);
+                  const opt = optByGameId.get(game.id);
                   return (
                     <Card key={game.id} className="relative overflow-hidden border-green-500/20 bg-green-500/[0.03]">
                       <div className="absolute inset-0 bg-gradient-to-r from-green-500/5 to-transparent pointer-events-none" />
@@ -559,7 +564,7 @@ export default function GamingHub() {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                 {filteredInstalled.map(game => {
-                  const opt = optimizations.find(o => o.gameId === game.id);
+                  const opt = optByGameId.get(game.id);
                   const fb = getFallback(game.name);
                   return (
                     <Card key={game.id} className="group relative overflow-hidden p-0 hover:border-gaccent/30 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_8px_25px_rgba(0,0,0,0.3)]">
@@ -715,7 +720,7 @@ export default function GamingHub() {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {installedGames.map(game => {
-                  const opt = optimizations.find(o => o.gameId === game.id);
+                  const opt = optByGameId.get(game.id);
                   return (
                     <Card key={game.id} className="group relative overflow-hidden p-0 hover:border-gaccent/30 transition-all">
                       <div className="relative h-[110px] overflow-hidden">

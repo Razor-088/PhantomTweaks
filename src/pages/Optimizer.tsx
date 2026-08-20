@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { Zap, ShieldCheck, Shield, Gamepad2, Settings as SettingsIcon, RefreshCw, Wrench } from 'lucide-react';
 import { api } from '../lib/api';
 import { useAppStore } from '../store/useAppStore';
@@ -23,6 +23,9 @@ export default function Optimizer() {
   const infoLevel = useAppStore((s) => s.settings?.infoLevel);
   const confirmChanges = useAppStore((s) => s.settings?.confirmChanges ?? true);
   const { t } = useI18n();
+
+  const tweaksRef = useRef(tweaks);
+  tweaksRef.current = tweaks;
 
   const CATEGORIES = useMemo(
     () => [
@@ -66,7 +69,7 @@ export default function Optimizer() {
     setBusy(id);
     try {
       const r = await api.tweaks.apply(id);
-      const name = tweaks.find((tw) => tw.id === id)?.name ?? 'Tweak';
+      const name = tweaksRef.current.find((tw) => tw.id === id)?.name ?? 'Tweak';
       if (r.applied) {
         setTweaks((prev) => prev.map((tw) => (tw.id === id ? { ...tw, applied: true } : tw)));
         toast('success', t('optimizer.applied'), name);
@@ -79,13 +82,13 @@ export default function Optimizer() {
       setBusy(null);
       await refreshStates();
     }
-  }, [tweaks, toast, t, refreshStates]);
+  }, [toast, t, refreshStates]);
 
   const revertTweak = useCallback(async (id: string) => {
     setBusy(id);
     try {
       const r = await api.tweaks.revert(id);
-      const name = tweaks.find((tw) => tw.id === id)?.name ?? 'Tweak';
+      const name = tweaksRef.current.find((tw) => tw.id === id)?.name ?? 'Tweak';
       if (r.reverted) {
         setTweaks((prev) => prev.map((tw) => (tw.id === id ? { ...tw, applied: false } : tw)));
         toast('success', t('optimizer.reverted'), name);
@@ -98,7 +101,7 @@ export default function Optimizer() {
       setBusy(null);
       await refreshStates();
     }
-  }, [tweaks, toast, t, refreshStates]);
+  }, [toast, t, refreshStates]);
 
   const appliedCount = useMemo(() => tweaks.filter((tw) => tw.applied).length, [tweaks]);
 
