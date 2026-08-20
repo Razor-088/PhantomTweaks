@@ -9,6 +9,12 @@ import { createTray, destroyTray } from './tray';
 
 const isSmokeTest = process.argv.includes('--smoke-test');
 
+app.commandLine.appendSwitch('js-flags', '--max-old-space-size=256');
+app.commandLine.appendSwitch('disable-renderer-backgrounding');
+app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
+app.commandLine.appendSwitch('disable-features', 'TranslateUI');
+app.commandLine.appendSwitch('disable-extensions');
+
 const devIcon = path.join(__dirname, '..', 'build', 'icon.png');
 const winIcon = fs.existsSync(devIcon) ? devIcon : undefined;
 
@@ -42,6 +48,9 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
+      spellcheck: false,
+      enableWebSQL: false,
+      backgroundThrottling: true,
     },
   });
 

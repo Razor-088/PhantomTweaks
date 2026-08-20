@@ -57,7 +57,20 @@ function loadProfiles(): NvidiaProfile[] {
 
 const scheduleWrite = createScheduleWrite(() => profilesCache, NVIDIA_PROFILES_FILE);
 
+let nvidiaDetectCache: NvidiaGpu[] | null = null;
+let nvidiaDetectTime = 0;
+const NVIDIA_DETECT_CACHE_MS = 30000;
+
 export async function detectNvidiaGpus(): Promise<NvidiaGpu[]> {
+  const now = Date.now();
+  if (nvidiaDetectCache && now - nvidiaDetectTime < NVIDIA_DETECT_CACHE_MS) return nvidiaDetectCache;
+
+  const gpus = await detectNvidiaGpusRaw();
+  if (gpus.length > 0) { nvidiaDetectCache = gpus; nvidiaDetectTime = now; }
+  return gpus;
+}
+
+async function detectNvidiaGpusRaw(): Promise<NvidiaGpu[]> {
   const ps = `
     $gpus = @()
     try {

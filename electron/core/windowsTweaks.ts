@@ -19,6 +19,9 @@ export interface Tweak {
   risk: TweakRisk;
   scope: 'user' | 'system';
   requiresAdmin: boolean;
+  regKey?: string;
+  regValue?: string;
+  regTarget?: number;
   check: () => Promise<boolean>;
   apply: () => Promise<{ applied: boolean; message?: string; records?: string[] }>;
   revert: () => Promise<{ reverted: boolean; message?: string }>;
@@ -106,6 +109,9 @@ function dwordTweak(opts: {
     risk: opts.risk,
     scope: opts.scope || 'user',
     requiresAdmin: opts.requiresAdmin || false,
+    regKey: opts.key,
+    regValue: opts.valueName,
+    regTarget: opts.target,
     check: async () => {
       const v = await getDword(opts.key, opts.valueName);
       return v === opts.target;
@@ -732,19 +738,52 @@ export interface TweakView {
 
 export async function getTweaksView(category?: TweakCategory): Promise<TweakView[]> {
   const list = getTweaks(category);
-  return Promise.all(
-    list.map(async (t) => ({
-      id: t.id,
-      name: t.name,
-      description: t.description,
-      category: t.category,
-      impact: t.impact,
-      risk: t.risk,
-      scope: t.scope,
-      requiresAdmin: t.requiresAdmin,
-      applied: await t.check().catch(() => false),
-    }))
-  );
+
+  // Batch all registry checks into a single PowerShell process (1 spawn instead of 30+)
+  const regChecks = list
+    .filter(t => t.regKey && t.regValue && t.regTarget !== undefined)
+    .map(t => ({ id: t.id, key: t.regKey!, valueName: t.regValue!, target: t.regTarget! }));
+
+  let regResults: Record<string, boolean> = {};
+  if (regChecks.length > 0) {
+    const checksJson = regChecks.map(c => `@{key='${c.key.replace(/'/g, "''")}';val='${c.valueName.replace(/'/g, "''")}';target=${c.target};id='${c.id}'}`).join(',');
+    const psScript = `
+$results = @{}
+$checks = @(${checksJson})
+foreach ($c in $checks) {
+  try {
+    $raw = & reg.exe query $c.key /v $c.val 2>&1
+    if ($LASTEXITCODE -eq 0) {
+      $m = [regex]::Match($raw, '0x([0-9a-fA-F]+)')
+      if ($m.Success) {
+        $results[$c.id] = ([int]::Parse($m.Groups[1].Value, [System.Globalization.NumberStyles]::HexNumber) -eq $c.target)
+      } else {
+        $d = [regex]::Match($raw, '(?m)\\s+\\S+\\s+REG_DWORD\\s+(\\d+)')
+        $results[$c.id] = if ($d.Success) { ([int]$d.Groups[1].Value -eq $c.target) } else { $false }
+      }
+    } else { $results[$c.id] = $false }
+  } catch { $results[$c.id] = $false }
+}
+$results | ConvertTo-Json -Depth 2 -Compress`;
+    try {
+      const r = await runPS(psScript, 12000);
+      if (r.stdout.trim()) {
+        regResults = JSON.parse(r.stdout.trim());
+      }
+    } catch { /* fallback to individual checks */ }
+  }
+
+  return list.map((t) => ({
+    id: t.id,
+    name: t.name,
+    description: t.description,
+    category: t.category,
+    impact: t.impact,
+    risk: t.risk,
+    scope: t.scope,
+    requiresAdmin: t.requiresAdmin,
+    applied: regResults[t.id] !== undefined ? regResults[t.id] : false,
+  }));
 }
 
 // ---------------------------------------------------------------------------

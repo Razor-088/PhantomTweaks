@@ -44,7 +44,7 @@ export const PROTECTED_PROCESSES = new Set([
   'wininit',
 ]);
 
-const GET_PROCESS_SCRIPT = `Get-Process | Select-Object Id,ProcessName,WorkingSet64,TotalProcessorTime,Path,SessionId | ConvertTo-Json -Depth 4 -Compress`;
+const GET_PROCESS_SCRIPT = `Get-Process | Where-Object { $_.SessionId -ne 0 } | Select-Object Id,ProcessName,WorkingSet64,TotalProcessorTime,Path,SessionId | ConvertTo-Json -Depth 1 -Compress`;
 
 interface PsSample {
   pid: number;
@@ -57,7 +57,7 @@ interface PsSample {
 
 let previousSample: PsSample[] | null = null;
 let lastFetch = 0;
-const CACHE_TTL = 2500;
+const CACHE_TTL = 5000;
 
 async function sampleProcesses(): Promise<PsSample[]> {
   const r = await runPS(GET_PROCESS_SCRIPT, 12000);
