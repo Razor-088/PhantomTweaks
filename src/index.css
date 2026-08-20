@@ -319,20 +319,6 @@ select.gt-select {
 /* ===== MORPH SHAPE ===== */
 .morph-shape { animation: morph 8s ease-in-out infinite; }
 
-/* ===== LAYOUT CONTAINMENT ===== */
-.panel, .stat-card, .game-card { contain: layout style; }
-.bg-aurora::before, .bg-aurora::after { will-change: transform; }
-
-/* ===== REDUCED MOTION ===== */
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
-  .bg-aurora::before, .bg-aurora::after { animation: none !important; }
-}
-
 /* ===== ACCESSIBILITY ===== */
 .no-anim *, .no-anim *::before, .no-anim *::after { animation: none !important; transition: none !important; }
 .pause-anim *, .pause-anim *::before, .pause-anim *::after { animation-play-state: paused !important; }

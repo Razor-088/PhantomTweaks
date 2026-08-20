@@ -372,19 +372,51 @@ export async function getOverview(force = false): Promise<Overview> {
 interface BatchResult {
   cpuClock: number | null;
   cpuTemp: number | null;
-  gpuPct: number | null;
-  gpuTemp: number | null;
-  gpuUsedMb: number | null;
-  gpuTotalMb: number | null;
   netDown: number;
   netUp: number;
 }
 
+/**
+ * GPU queried directly from Node.js (no PowerShell overhead).
+ * Cached for 5s to avoid hammering nvidia-smi.
+ */
+let gpuCache: { pct: number|null; temp: number|null; usedMb: number|null; totalMb: number|null } | null = null;
+let gpuCacheTime = 0;
+const GPU_CACHE_MS = 5000;
+
+function queryGpu(): Promise<{ pct: number|null; temp: number|null; usedMb: number|null; totalMb: number|null }> {
+  return new Promise((resolve) => {
+    execFile('nvidia-smi',
+      ['--query-gpu=utilization.gpu,temperature.gpu,memory.used,memory.total', '--format=csv,noheader,nounits'],
+      { timeout: 4000, windowsHide: true },
+      (_err, stdout) => {
+        const out = stdout?.trim();
+        if (!out) return resolve({ pct: null, temp: null, usedMb: null, totalMb: null });
+        const p = out.split(',').map(s => s.trim());
+        resolve({
+          pct:     p[0] && p[0] !== '[N/A]' ? Math.min(100, Math.max(0, Math.round(Number(p[0])))) : null,
+          temp:    p[1] && p[1] !== '[N/A]' ? Number(p[1]) : null,
+          usedMb:  p[2] && p[2] !== '[N/A]' ? Number(p[2]) : null,
+          totalMb: p[3] && p[3] !== '[N/A]' ? Number(p[3]) : null,
+        });
+      }
+    );
+  });
+}
+
+/**
+ * PowerShell batch now only does CPU temp + network (nvidia-smi removed).
+ * This makes the PS script ~40% lighter.
+ */
 const BATCH_SCRIPT = `
 $ErrorActionPreference = 'SilentlyContinue'
 
-# ── CPU clock ──
-$cpu = Get-CimInstance Win32_Processor | Select-Object -First 1 CurrentClockSpeed
+# ── CPU clock (cached after first run — rarely changes) ──
+if ($env:CACHED_CLOCK) { $clockVal = [int]$env:CACHED_CLOCK } else {
+  $cpu = [wmi]'root\\cimv2:Win32_Processor.DeviceID="CPU0"'
+  $clockVal = if ($cpu) { [int]$cpu.CurrentClockSpeed } else { $null }
+  if ($clockVal) { $env:CACHED_CLOCK = $clockVal }
+}
 
 # ── CPU temperature ──
 $cpuTemp = $null
@@ -393,40 +425,27 @@ try {
   if ($t) { $cpuTemp = [math]::Round($t.CurrentTemperature / 10 - 273.15) }
 } catch {}
 
-# ── Network counters ──
+# ── Network: primary adapter only (lighter than all-adapter Get-Counter) ──
 $netDown = 0; $netUp = 0
-$c = Get-Counter -Counter '\\Network Interface(*)\\Bytes Received/sec','\\Network Interface(*)\\Bytes Sent/sec' -ErrorAction SilentlyContinue
-if ($c) {
-  $netDown = ($c.CounterSamples | Where-Object { $_.Path -like '*Bytes Received*' } | Measure-Object -Property CookedValue -Sum).Sum
-  $netUp   = ($c.CounterSamples | Where-Object { $_.Path -like '*Bytes Sent*' }   | Measure-Object -Property CookedValue -Sum).Sum
-}
-
-# ── GPU utilisation ──
-$gpuPct = $null; $gpuTemp = $null; $gpuUsedMb = $null; $gpuTotalMb = $null
-$nv = & nvidia-smi --query-gpu=utilization.gpu,temperature.gpu,memory.used,memory.total --format=csv,noheader,nounits 2>$null
-if ($LASTEXITCODE -eq 0 -and $nv) {
-  $parts = ($nv.Trim() -split ',').ForEach({ $_.Trim() })
-  if ($parts[0] -and $parts[0] -ne '[N/A]') { $gpuPct = [double]$parts[0] }
-  if ($parts[1] -and $parts[1] -ne '[N/A]') { $gpuTemp = [int]$parts[1] }
-  if ($parts[2] -and $parts[2] -ne '[N/A]') { $gpuUsedMb = [int]$parts[2] }
-  if ($parts[3] -and $parts[3] -ne '[N/A]') { $gpuTotalMb = [int]$parts[3] }
-} else {
-  $gc = Get-Counter -Counter '\\GPU Engine(*)\\Utilization Percentage' -ErrorAction SilentlyContinue
-  if ($gc) {
-    $sum = ($gc.CounterSamples | Measure-Object -Property CookedValue -Sum).Sum
-    if ($sum) { $gpuPct = [math]::Round($sum, 1) }
+try {
+  $ifIndex = (Get-NetAdapter -PhysicalMediaType '802.3' -ErrorAction SilentlyContinue |
+    Sort-Object -Property Status -Descending | Select-Object -First 1).InterfaceIndex
+  if ($ifIndex) {
+    $c = Get-Counter -Counter "\\Network Interface($ifIndex)\\Bytes Received/sec","\\Network Interface($ifIndex)\\Bytes Sent/sec" -ErrorAction SilentlyContinue
+    if ($c) {
+      foreach ($s in $c.CounterSamples) {
+        if ($s.Path -like '*Bytes Received*') { $netDown = [long]$s.CookedValue }
+        elseif ($s.Path -like '*Bytes Sent*')     { $netUp   = [long]$s.CookedValue }
+      }
+    }
   }
-}
+} catch {}
 
 [PSCustomObject]@{
-  cpuClock  = if ($cpu) { $cpu.CurrentClockSpeed } else { $null }
-  cpuTemp   = $cpuTemp
-  gpuPct    = $gpuPct
-  gpuTemp   = $gpuTemp
-  gpuUsedMb = $gpuUsedMb
-  gpuTotalMb= $gpuTotalMb
-  netDown   = if ($netDown) { $netDown } else { 0 }
-  netUp     = if ($netUp)   { $netUp }   else { 0 }
+  clock  = $clockVal
+  temp   = $cpuTemp
+  netD   = $netDown
+  netU   = $netUp
 }
 `;
 
@@ -453,21 +472,17 @@ export async function getMonitorSnapshot(): Promise<MonitorSnapshot> {
   const disk = statfsTotalFree(root);
   const diskPct = disk.total > 0 ? Math.round(((disk.total - disk.free) / disk.total) * 100) : 0;
 
-  // ── Batched PowerShell query (1 process for everything else) ──
+  // ── Batched PowerShell query (CPU temp + network only, no GPU) ──
   let batch = lastBatch;
   if (!batch || now - lastBatchTime > BATCH_MIN_INTERVAL) {
     try {
-      const raw = await runPSJson<BatchResult>(BATCH_SCRIPT, 10000);
+      const raw = await runPSJson<{ clock: number|null; temp: number|null; netD: number; netU: number }>(BATCH_SCRIPT, 10000);
       if (raw) {
         batch = {
-          cpuClock: raw.cpuClock ?? null,
-          cpuTemp: raw.cpuTemp != null ? Math.round(Number(raw.cpuTemp)) : null,
-          gpuPct: raw.gpuPct != null ? Math.min(100, Math.max(0, Math.round(Number(raw.gpuPct)))) : null,
-          gpuTemp: raw.gpuTemp != null ? Number(raw.gpuTemp) : null,
-          gpuUsedMb: raw.gpuUsedMb != null ? Number(raw.gpuUsedMb) : null,
-          gpuTotalMb: raw.gpuTotalMb != null ? Number(raw.gpuTotalMb) : null,
-          netDown: fmtBytesPerSecToMbps(Number(raw.netDown) || 0),
-          netUp: fmtBytesPerSecToMbps(Number(raw.netUp) || 0),
+          cpuClock: raw.clock ?? null,
+          cpuTemp: raw.temp != null ? Math.round(Number(raw.temp)) : null,
+          netDown: fmtBytesPerSecToMbps(Number(raw.netD) || 0),
+          netUp: fmtBytesPerSecToMbps(Number(raw.netU) || 0),
         };
         lastBatch = batch;
         lastBatchTime = now;
@@ -475,6 +490,12 @@ export async function getMonitorSnapshot(): Promise<MonitorSnapshot> {
     } catch {
       batch = lastBatch;
     }
+  }
+
+  // ── GPU via direct Node.js (no PowerShell overhead, cached 5s) ──
+  let gpu = gpuCache;
+  if (!gpu || now - gpuCacheTime > GPU_CACHE_MS) {
+    try { gpu = await queryGpu(); gpuCache = gpu; gpuCacheTime = now; } catch { gpu = gpuCache; }
   }
 
   // ── Fallback to overview cache for clock if batch is stale ──
@@ -486,10 +507,10 @@ export async function getMonitorSnapshot(): Promise<MonitorSnapshot> {
   return {
     cpu: { pct: cpuPct, temp: batch?.cpuTemp ?? null, clockMhz },
     gpu: {
-      pct: batch?.gpuPct ?? null,
-      temp: batch?.gpuTemp ?? null,
-      usedMb: batch?.gpuUsedMb ?? null,
-      totalMb: batch?.gpuTotalMb ?? null,
+      pct: gpu?.pct ?? null,
+      temp: gpu?.temp ?? null,
+      usedMb: gpu?.usedMb ?? null,
+      totalMb: gpu?.totalMb ?? null,
     },
     ram: { pct: ram.pct, usedGb: ram.usedGb, totalGb: ram.totalGb, freeGb: ram.freeGb },
     disk: {
